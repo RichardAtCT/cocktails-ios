@@ -127,22 +127,68 @@ struct SizePanel: View {
 	}
 }
 
-/// "See it larger": the cocktail picture over the whole screen; tap or Done to close
+/// "See it larger" (the site's .bgal overlay): the picture over the whole screen, the name under
+/// it and, for an ingredient, a link to the real product photo. The bundled picture shows at once;
+/// the full-size one (big) replaces it when it has loaded. Tap or ✕ to close.
 struct PhotoView: View {
 	let url: URL?
 	let name: String
+	var big: URL? = nil
+	var link: URL? = nil
+	@State private var loaded: UIImage?
 	@Environment(\.dismiss) private var dismiss
+	@Environment(\.openURL) private var openURL
 	var body: some View {
 		ZStack(alignment: .topTrailing) {
 			Color.white.ignoresSafeArea()
-			Pic(url: url).padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
+			VStack(spacing: 14) {
+				Group {
+					if let loaded { Image(uiImage: loaded).resizable().interpolation(.high).aspectRatio(contentMode: .fit) }
+					else { Pic(url: url) }
+				}
+				.frame(maxWidth: .infinity, maxHeight: .infinity)
 				.accessibilityLabel(name)
+				// .bphotocap: the name, and the product photo link
+				HStack(spacing: 14) {
+					Text(name).font(Theme.sans(15.2, .semibold))
+					if let link {
+						Button { openURL(link) } label: { Text(T("product photo")).font(Theme.sans(14.4)).underline() }
+							.buttonStyle(.plain)
+					}
+				}
+				.foregroundStyle(Color(hex: 0x0A0A0A))
+			}
+			.padding(24)
 			Button { dismiss() } label: {
 				Image(systemName: "xmark").font(.system(size: 17, weight: .semibold)).foregroundStyle(Color(hex: 0x0A0A0A))
 					.frame(width: 44, height: 44).background(Color(hex: 0xE7E7E1), in: Circle())
-			}.padding(16).accessibilityLabel(T("Close"))
+			}
+			// plain: no hover / focus rectangle around the round button (the Mac draws one otherwise)
+			.buttonStyle(.plain).contentShape(Circle()).focusEffectDisabled()
+			.padding(16).accessibilityLabel(T("Close"))
 		}
 		.contentShape(Rectangle())
 		.onTapGesture { dismiss() }
+		.task {
+			guard let big, let (d, r) = try? await URLSession.shared.data(from: big),
+				  (r as? HTTPURLResponse)?.statusCode == 200, let img = UIImage(data: d) else { return }
+			loaded = img
+		}
+	}
+}
+
+/// a picture that opens "See it larger" when tapped (the site's bphotobtn / ippic / gherobtn)
+struct ZoomPic<Label: View>: View {
+	let url: URL?
+	let name: String
+	var big: URL? = nil
+	var link: URL? = nil
+	@ViewBuilder var label: Label
+	@State private var open = false
+	var body: some View {
+		Button { open = true } label: { label }
+			.buttonStyle(.plain)
+			.accessibilityLabel(name).accessibilityHint(T("See it larger"))
+			.fullScreenCover(isPresented: $open) { PhotoView(url: url, name: name, big: big, link: link) }
 	}
 }

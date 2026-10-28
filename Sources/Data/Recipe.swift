@@ -16,6 +16,15 @@ struct Recipe {
 		let oz: String?              // the book's amount, "1.5 oz"
 		let mg: Int                  // the scale target in mg (maker)
 		let isGarnish: Bool
+		let qty: String              // the book's amount as stored ("2dashes"), for the maker's "(2 dashes)"
+		let fx: Fx                   // what it adds to the drink, for the maker's after-the-fact facts
+	}
+	/// one step's share of the drink (the maker data's "fx", admin/pdt_facts.py's model): ml per
+	/// drink, ABV %, sugar and acid per 100 ml or 100 g (per), grams (g), and whether it's diluted
+	/// with the rest (base), added after it (top), or not in the glass (none)
+	struct Fx: Hashable {
+		let v, abv, s, a, g: Double
+		let per, ph: String
 	}
 	/// drink_stats for one drink: what the facts panel and the size panel scale
 	struct Stats {
@@ -44,6 +53,7 @@ struct Recipe {
 	let name: String
 	let image: URL?
 	let glass: String
+	let howto: String                // English, "" if none (the maker's dilution kind)
 	let method: String
 	let description: String?
 	let alsoIn: [(book: Book, name: String, same: Bool)]
@@ -191,7 +201,8 @@ extension Store {
 		var strip: [String] = []
 		// garnishes go after the serve row, whatever the book's order
 		for r in db.rows("""
-			SELECT q.name qty, s.grams sg, i.name ing, i.ingredient_id iid, mi.name mix, s.sortorder so
+			SELECT q.name qty, s.grams sg, i.name ing, i.ingredient_id iid, mi.name mix, s.sortorder so,
+				COALESCE(i.abv,0), COALESCE(i.sugar,0), COALESCE(i.acid,0), COALESCE(i.sugar_per,'100ml')
 			FROM step s LEFT JOIN ingredient i ON s.ingredient_id=i.ingredient_id
 			LEFT JOIN mixtype mi ON s.mixtype_id=mi.mixtype_id LEFT JOIN quantity q ON s.quantity_id=q.quantity_id
 			WHERE s.drink_id=?1 AND s.sortorder IS NOT NULL
@@ -209,6 +220,7 @@ extension Store {
 			var grams: String? = nil
 			var mg = 0
 			var est = false
+			var estMl = 0.0
 			if let sg, !(iscount && isg) {
 				var g = String(format: "%.1f", sg)
 				if g == "0.0" { g = "0.1" }
@@ -222,14 +234,19 @@ extension Store {
 					var eg = 0
 					if ing.range(of: "champagne|sparkling|prosecco|cava|cr.?mant|lambrusco|sekt|cider|moscato|asti", options: [.regularExpression, .caseInsensitive]) != nil { eg = 60 }
 					else if ing.range(of: "soda|tonic|seltzer|cola|ginger beer|ginger ale|pellegrino", options: [.regularExpression, .caseInsensitive]) != nil { eg = 90 }
-					if eg > 0 { grams = "\(eg)"; mg = eg * 1000; est = true; total += Double(eg) }
+					if eg > 0 { grams = "\(eg)"; mg = eg * 1000; est = true; estMl = Double(eg); total += Double(eg) }
 				}
 			}
 			let toTaste = grams == nil && !iscount && mix.range(of: "garnish|twist|rim", options: [.regularExpression, .caseInsensitive]) == nil
 			let oz: String? = (!qty.isEmpty && !(iscount && grams == nil)) ? Store.qty(qty) : nil
 			let mixen = (!mix.isEmpty && mix != "Build") ? mix : "Add"
+			let ml = mix.isEmpty ? "build" : mixl
+			let fx = Recipe.Fx(v: estMl > 0 ? estMl : Store.qtyMl(qty, ing), abv: r.d(6) ?? 0, s: r.d(7) ?? 0, a: r.d(8) ?? 0,
+				g: sg ?? (estMl > 0 ? estMl : 0), per: r.s(9).isEmpty ? "100ml" : r.s(9),
+				ph: ["garnish", "twist", "rim", "spritz", "rinse"].contains(ml) ? "none" : (["top", "float", "flame"].contains(ml) ? "top" : "base"))
 			rows.append(Recipe.Row(n: idx, ingredient: ing, ingredientId: iid, label: T(ing), cat: cat, mix: mixen, mixLabel: T(mixen),
-				grams: grams.map { est ? "~\($0)" : $0 }, count: iscount ? qty : nil, toTaste: toTaste, oz: oz, mg: mg, isGarnish: isg))
+				grams: grams.map { est ? "~\($0)" : $0 }, count: iscount ? qty : nil, toTaste: toTaste, oz: oz, mg: mg, isGarnish: isg,
+				qty: qty, fx: fx))
 			if Img.ingredient(ing) != nil && !strip.contains(ing) { strip.append(ing) }
 		}
 		let serve = serveAt ?? rows.count
@@ -283,10 +300,24 @@ extension Store {
 		}
 
 		let descr = db.one("SELECT description FROM drink_description WHERE drink_id=?1", id).string
-		return Recipe(book: book, id: id, name: name, image: cocktailImg(name), glass: glass,
+		return Recipe(book: book, id: id, name: name, image: cocktailImg(name), glass: glass, howto: howto,
 			method: howto.isEmpty ? T("Stir or shake well, then serve.") : T(howto),
 			description: descr.isEmpty ? nil : T(descr), alsoIn: also, rows: rows, serveAt: serve,
 			total: total, stats: stats, cite: cite, similar: similar, strip: strip)
+	}
+
+	/// a book amount in ml, for the facts (pdt_qty_ml): oz, dashes, drops, spoons, scoops; eggs by count
+	static func qtyMl(_ qty: String, _ ing: String) -> Double {
+		let q = qty.trimmingCharacters(in: .whitespaces)
+		guard let re = try? NSRegularExpression(pattern: "^([0-9.]+)(?:-([0-9.]+))?\\s*([A-Za-z]*)$"),
+			  let m = re.firstMatch(in: q, range: NSRange(q.startIndex..., in: q)) else { return 0 }
+		func g(_ i: Int) -> String? { Range(m.range(at: i), in: q).map { String(q[$0]) } }
+		guard let a = Double(g(1) ?? ""), let b = Double(g(2) ?? g(1) ?? "") else { return 0 }
+		let n = (a + b) / 2, u = (g(3) ?? "").lowercased()
+		let ml: [String: Double] = ["oz": 29.5735, "dash": 0.92, "dashes": 0.92, "drop": 0.05, "drops": 0.05, "barspoon": 5, "barspoons": 5,
+			"tsp": 4.93, "tbsp": 14.79, "scoop": 60]
+		if let k = ml[u] { return n * k }
+		return n * (["egg white": 30.0, "egg yolk": 18, "whole egg": 50][ing.lowercased()] ?? 0)
 	}
 
 	/// book quantity "2dashes" / ".75oz" -> "2 dashes" / ".75 oz", unit translated (pdt_qty)

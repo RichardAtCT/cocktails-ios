@@ -12,8 +12,11 @@
 		1D002131BB8E1EB4F4F63565 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1582DFFCADAA37A629D6E8B8 /* Components.swift */; };
 		2457E3E62C0BFAFB9C1C8C79 /* ListScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AA41E44FED199E78BDD96F7 /* ListScreens.swift */; };
 		3069F39DE0A09628994210A6 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D61A8320C85BE46F091266 /* Theme.swift */; };
+		310A37895C1F70EBDA2D90FA /* Scale.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BF345593124370DE6581438 /* Scale.swift */; };
 		41CA917E5E872B1B779AA7F8 /* SizePanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D7963476E84D9B1D14DB64A /* SizePanel.swift */; };
+		43F77F6125CF8697197788DD /* BarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 018C62D7EF07994B857479FE /* BarView.swift */; };
 		5551E1F9689970064C38FA4C /* OFL-Archivo.txt in Resources */ = {isa = PBXBuildFile; fileRef = 361C0CF3E1683129AE4F2C68 /* OFL-Archivo.txt */; };
+		5C6FD0905AE7EB58113FD2CF /* BarDump.swift in Sources */ = {isa = PBXBuildFile; fileRef = 981CA194D55EB59FEB497CA8 /* BarDump.swift */; };
 		62B4B3FB7840AC0C25518843 /* Img.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BFDC7C0D247E1E83E38CC3A /* Img.swift */; };
 		68CC78DC221A4D2B6B876865 /* Recipe.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8D90E182808FDDED4EA19F0 /* Recipe.swift */; };
 		76B83B6849A343664F86BBE4 /* SQLite.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5917598696A1A507312BE5AF /* SQLite.swift */; };
@@ -21,25 +24,35 @@
 		7777C619BEDE6A0C5A7F3FBB /* Archivo.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 5F7F887F234578BD30A13937 /* Archivo.ttf */; };
 		77A220715818CE001334C2AD /* IBMPlexMono-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = E5EC066807774C00EBEC5F06 /* IBMPlexMono-SemiBold.ttf */; };
 		780F2F0E4FDEC619E3344DBD /* Route.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11AC79622C48DFF72D5A019 /* Route.swift */; };
+		785BFA6B0C453C2223EAE09A /* Maker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4645E888A62F38CFC90BDA73 /* Maker.swift */; };
 		7E1FEE341A4C616EDA284853 /* Lang.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DC4C5C6A0C816B239273071 /* Lang.swift */; };
 		806046C06F1BEFB1C7723C73 /* Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7125C45F7084F6579B85FAE /* Store.swift */; };
 		82524B41012D383323C82972 /* Books.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BD632221015FE03218F150F /* Books.swift */; };
+		A9C0F33A36284CB13709D4DF /* BarModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9E3BAD3A7B705FC244C8691 /* BarModel.swift */; };
 		AD1B7D03AF76A8FE8C9EC39B /* FactIcons.swift in Sources */ = {isa = PBXBuildFile; fileRef = A067D4AAE6266D6093805385 /* FactIcons.swift */; };
+		B163954EC38380E6AFE29CF2 /* Member.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D0206E080ABF220D8EFF268 /* Member.swift */; };
 		B2FBCA884DF6B25BE2971E3F /* CocktailsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE9E6015F0863819BA061266 /* CocktailsApp.swift */; };
+		D3F6FA068D21373DBC8334AE /* Account.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7A22171A8CFE4F0E7242445 /* Account.swift */; };
 		D7CF26576A2D6C06B5E477C8 /* IBMPlexMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = BB23F6CF893285EA0ED110DC /* IBMPlexMono-Regular.ttf */; };
 		E7F18B703E7A6B52E7C6571B /* Data in Resources */ = {isa = PBXBuildFile; fileRef = 6E3A792309667FB9A733E7FA /* Data */; };
 		EA347105AA2C66890CF7B689 /* OFL-IBMPlexMono.txt in Resources */ = {isa = PBXBuildFile; fileRef = 2C5AED118B5CF7972E4E43BB /* OFL-IBMPlexMono.txt */; };
 		ED85E9E73019ADFA877EB06B /* RecipeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 340C770DA1CFDA486A76093B /* RecipeView.swift */; };
+		F38A3423123D5065407FC110 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D62EF34473104834C1D5CF1B /* Assets.xcassets */; };
+		FF3F63B3F13F89F520BEB7BF /* MakerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8F2E6ED5F1D0BBE8A11A81A /* MakerView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		018C62D7EF07994B857479FE /* BarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarView.swift; sourceTree = "<group>"; };
 		0AA41E44FED199E78BDD96F7 /* ListScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListScreens.swift; sourceTree = "<group>"; };
 		0BFDC7C0D247E1E83E38CC3A /* Img.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Img.swift; sourceTree = "<group>"; };
+		0D0206E080ABF220D8EFF268 /* Member.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Member.swift; sourceTree = "<group>"; };
 		1582DFFCADAA37A629D6E8B8 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		2BF345593124370DE6581438 /* Scale.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scale.swift; sourceTree = "<group>"; };
 		2C5AED118B5CF7972E4E43BB /* OFL-IBMPlexMono.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OFL-IBMPlexMono.txt"; sourceTree = "<group>"; };
 		340C770DA1CFDA486A76093B /* RecipeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecipeView.swift; sourceTree = "<group>"; };
 		361C0CF3E1683129AE4F2C68 /* OFL-Archivo.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OFL-Archivo.txt"; sourceTree = "<group>"; };
 		4089A8B513D91D2E2250DCB1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		4645E888A62F38CFC90BDA73 /* Maker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Maker.swift; sourceTree = "<group>"; };
 		4D7963476E84D9B1D14DB64A /* SizePanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SizePanel.swift; sourceTree = "<group>"; };
 		5917598696A1A507312BE5AF /* SQLite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLite.swift; sourceTree = "<group>"; };
 		5D701E244036D9CF6A65D8DA /* HomeScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeScreens.swift; sourceTree = "<group>"; };
@@ -49,15 +62,20 @@
 		6E3A792309667FB9A733E7FA /* Data */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Data; path = Resources/Data; sourceTree = SOURCE_ROOT; };
 		7B3EC84A38385EB2D7B100E0 /* libsqlite3.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libsqlite3.tbd; path = usr/lib/libsqlite3.tbd; sourceTree = SDKROOT; };
 		7FF737EF759B72D0C1E94AC2 /* IBMPlexMono-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "IBMPlexMono-Medium.ttf"; sourceTree = "<group>"; };
+		981CA194D55EB59FEB497CA8 /* BarDump.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarDump.swift; sourceTree = "<group>"; };
 		9D489818CC95A4EC5FF14E69 /* Cocktails.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Cocktails.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A067D4AAE6266D6093805385 /* FactIcons.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FactIcons.swift; sourceTree = "<group>"; };
 		B4D61A8320C85BE46F091266 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		BB23F6CF893285EA0ED110DC /* IBMPlexMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "IBMPlexMono-Regular.ttf"; sourceTree = "<group>"; };
 		C7125C45F7084F6579B85FAE /* Store.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Store.swift; sourceTree = "<group>"; };
 		CE9E6015F0863819BA061266 /* CocktailsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CocktailsApp.swift; sourceTree = "<group>"; };
+		D62EF34473104834C1D5CF1B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E5EC066807774C00EBEC5F06 /* IBMPlexMono-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "IBMPlexMono-SemiBold.ttf"; sourceTree = "<group>"; };
 		E8D90E182808FDDED4EA19F0 /* Recipe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Recipe.swift; sourceTree = "<group>"; };
+		E8F2E6ED5F1D0BBE8A11A81A /* MakerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MakerView.swift; sourceTree = "<group>"; };
+		E9E3BAD3A7B705FC244C8691 /* BarModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarModel.swift; sourceTree = "<group>"; };
 		F11AC79622C48DFF72D5A019 /* Route.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Route.swift; sourceTree = "<group>"; };
+		F7A22171A8CFE4F0E7242445 /* Account.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Account.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -72,11 +90,24 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		2D8C4BB76E9C45CCE5BFA72E /* Members */ = {
+			isa = PBXGroup;
+			children = (
+				F7A22171A8CFE4F0E7242445 /* Account.swift */,
+				981CA194D55EB59FEB497CA8 /* BarDump.swift */,
+				E9E3BAD3A7B705FC244C8691 /* BarModel.swift */,
+				0D0206E080ABF220D8EFF268 /* Member.swift */,
+			);
+			path = Members;
+			sourceTree = "<group>";
+		};
 		3D12AEF1A0EBCD95C2899BF2 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
 				CE9E6015F0863819BA061266 /* CocktailsApp.swift */,
 				F9B4CF456A2E9955F5C6FD73 /* Data */,
+				C1152195E8CDDE0264CEB397 /* Maker */,
+				2D8C4BB76E9C45CCE5BFA72E /* Members */,
 				C5A902A6A735D4A3B2239D6F /* Screens */,
 				4A52A23C84C89AB15C4A2A8C /* UI */,
 			);
@@ -105,6 +136,7 @@
 		759640CD559D47D3408BBC82 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				D62EF34473104834C1D5CF1B /* Assets.xcassets */,
 				6E3A792309667FB9A733E7FA /* Data */,
 				4089A8B513D91D2E2250DCB1 /* Info.plist */,
 				BF39D3DA9315537177077C0C /* Fonts */,
@@ -143,11 +175,22 @@
 			path = Fonts;
 			sourceTree = "<group>";
 		};
+		C1152195E8CDDE0264CEB397 /* Maker */ = {
+			isa = PBXGroup;
+			children = (
+				4645E888A62F38CFC90BDA73 /* Maker.swift */,
+				2BF345593124370DE6581438 /* Scale.swift */,
+			);
+			path = Maker;
+			sourceTree = "<group>";
+		};
 		C5A902A6A735D4A3B2239D6F /* Screens */ = {
 			isa = PBXGroup;
 			children = (
+				018C62D7EF07994B857479FE /* BarView.swift */,
 				5D701E244036D9CF6A65D8DA /* HomeScreens.swift */,
 				0AA41E44FED199E78BDD96F7 /* ListScreens.swift */,
+				E8F2E6ED5F1D0BBE8A11A81A /* MakerView.swift */,
 				340C770DA1CFDA486A76093B /* RecipeView.swift */,
 				4D7963476E84D9B1D14DB64A /* SizePanel.swift */,
 			);
@@ -229,6 +272,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				7777C619BEDE6A0C5A7F3FBB /* Archivo.ttf in Resources */,
+				F38A3423123D5065407FC110 /* Assets.xcassets in Resources */,
 				E7F18B703E7A6B52E7C6571B /* Data in Resources */,
 				7728A6C9AADB8A7DAA53D870 /* IBMPlexMono-Medium.ttf in Resources */,
 				D7CF26576A2D6C06B5E477C8 /* IBMPlexMono-Regular.ttf in Resources */,
@@ -245,6 +289,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D3F6FA068D21373DBC8334AE /* Account.swift in Sources */,
+				5C6FD0905AE7EB58113FD2CF /* BarDump.swift in Sources */,
+				A9C0F33A36284CB13709D4DF /* BarModel.swift in Sources */,
+				43F77F6125CF8697197788DD /* BarView.swift in Sources */,
 				82524B41012D383323C82972 /* Books.swift in Sources */,
 				B2FBCA884DF6B25BE2971E3F /* CocktailsApp.swift in Sources */,
 				1D002131BB8E1EB4F4F63565 /* Components.swift in Sources */,
@@ -253,10 +301,14 @@
 				62B4B3FB7840AC0C25518843 /* Img.swift in Sources */,
 				7E1FEE341A4C616EDA284853 /* Lang.swift in Sources */,
 				2457E3E62C0BFAFB9C1C8C79 /* ListScreens.swift in Sources */,
+				785BFA6B0C453C2223EAE09A /* Maker.swift in Sources */,
+				FF3F63B3F13F89F520BEB7BF /* MakerView.swift in Sources */,
+				B163954EC38380E6AFE29CF2 /* Member.swift in Sources */,
 				68CC78DC221A4D2B6B876865 /* Recipe.swift in Sources */,
 				ED85E9E73019ADFA877EB06B /* RecipeView.swift in Sources */,
 				780F2F0E4FDEC619E3344DBD /* Route.swift in Sources */,
 				76B83B6849A343664F86BBE4 /* SQLite.swift in Sources */,
+				310A37895C1F70EBDA2D90FA /* Scale.swift in Sources */,
 				41CA917E5E872B1B779AA7F8 /* SizePanel.swift in Sources */,
 				806046C06F1BEFB1C7723C73 /* Store.swift in Sources */,
 				3069F39DE0A09628994210A6 /* Theme.swift in Sources */,
@@ -341,7 +393,8 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.decentespresso.cocktails;
-				PRODUCT_NAME = Cocktails;
+				PRODUCT_MODULE_NAME = Cocktails;
+				PRODUCT_NAME = "Decent Cocktails";
 				SDKROOT = iphoneos;
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
@@ -431,7 +484,8 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.decentespresso.cocktails;
-				PRODUCT_NAME = Cocktails;
+				PRODUCT_MODULE_NAME = Cocktails;
+				PRODUCT_NAME = "Decent Cocktails";
 				SDKROOT = iphoneos;
 				SUPPORTS_MACCATALYST = YES;
 				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;

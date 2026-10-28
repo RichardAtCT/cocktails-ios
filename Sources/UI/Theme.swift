@@ -14,6 +14,8 @@ enum Theme {
 	static let green = Color(hex: 0x1AA35A)
 	/// picture backgrounds stay white in dark mode, as on the site (.card .viz)
 	static let picBG = Color.white
+	/// the book chooser cards' text half: a light grey, so each book reads as its own card
+	static let bookCard = dyn(0xF1F1ED, 0x18181B)
 
 	private static func dyn(_ light: UInt32, _ dark: UInt32) -> Color {
 		Color(UIColor { $0.userInterfaceStyle == .dark ? UIColor(hex: dark) : UIColor(hex: light) })

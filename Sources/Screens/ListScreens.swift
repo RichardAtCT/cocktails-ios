@@ -179,7 +179,10 @@ struct SpiritView: View {
 
 	@ViewBuilder private func pairPictures(_ s: Store, _ alabel: String) -> some View {
 		if Store.baseSpirits.contains(and), let pair = Img.spiritPair(key, and) {
-			Pic(url: pair, bg: nil).frame(maxWidth: .infinity).frame(height: 180)
+			// the two spirits' bottles side by side; tap for the larger picture (the site's #bpair)
+			ZoomPic(url: pair, name: "\(Store.spiritLabel(key)) + \(Store.spiritLabel(and))", big: Img.spiritPairBig(key, and)) {
+				Pic(url: pair, bg: nil).frame(maxWidth: .infinity).frame(height: 180)
+			}
 		} else {
 			let aimg: URL? = and.hasPrefix("cat:") ? s.catImg(String(and.dropFirst(4)))
 				: and.hasPrefix("ing:") ? Img.ingredient(String(and.dropFirst(4)))
@@ -288,23 +291,40 @@ struct IngredientView: View {
 			let crumb: [(String, Route?)] = with.isEmpty
 				? [(T("Home"), .home(book.key)), (T("Ingredients"), .ingredients(book.key)), (ingt, nil)]
 				: [(T("Home"), .home(book.key)), (T("Ingredients"), .ingredients(book.key)), (ingt, .ingredient(book.key, name: name, with: "")), (T(with), nil)]
-			Crumb(items: crumb).padding(.top, 10)
-			// the picture (two side by side for a pair)
-			HStack(spacing: with.isEmpty ? 0 : -56) {
-				Pic(url: Img.ingredient(name), bg: with.isEmpty ? nil : Theme.picBG).frame(width: 168, height: 168).blendMode(with.isEmpty ? .normal : .multiply)
-				if !with.isEmpty { Pic(url: Img.ingredient(with)).frame(width: 168, height: 168).blendMode(.multiply) }
+			HStack(alignment: .center) {
+				Crumb(items: crumb)
+				Spacer(minLength: 8)
+				if with.isEmpty, let iid = s.ingredientId(name) { IHaveButton(book: book, id: iid) }
+			}.padding(.top, 10)
+			if with.isEmpty {
+				// one bottle: on the right of the title and its category, as the spirit page has its
+				// photo (the site floats it there on phones); tap for the larger picture
+				HStack(alignment: .top, spacing: 14) {
+					VStack(alignment: .leading, spacing: 0) {
+						H1(ingt)
+						catChips(s, cats).padding(.top, 16)
+					}
+					.frame(maxWidth: .infinity, alignment: .leading)
+					if let u = Img.ingredient(name) {
+						ZoomPic(url: u, name: ingt, big: Img.ingredientBig(name), link: Img.productPhoto(name)) {
+							Pic(url: u, bg: nil).frame(width: 120, height: 150)
+						}
+					}
+				}.padding(.top, 14)
+			} else {
+				// a pair: the two bottles side by side, each opening its own larger picture
+				HStack(spacing: -56) {
+					ForEach([name, with], id: \.self) { nm in
+						ZoomPic(url: Img.ingredient(nm), name: T(nm), big: Img.ingredientBig(nm), link: Img.productPhoto(nm)) {
+							Pic(url: Img.ingredient(nm)).frame(width: 168, height: 168).blendMode(.multiply)
+						}
+					}
+				}
+				.frame(maxWidth: .infinity)
+				(Text(ingt) + Text(" + \(T(with))").foregroundColor(Theme.faint)).font(Theme.sans(34, .semibold)).kerning(-0.8).foregroundStyle(Theme.ink)
+					.padding(.top, 14)
+				catChips(s, cats).padding(.top, 16)
 			}
-			.frame(maxWidth: .infinity)
-			Group {
-				if with.isEmpty { H1(ingt) } else {
-					(Text(ingt) + Text(" + \(T(with))").foregroundColor(Theme.faint)).font(Theme.sans(34, .semibold)).kerning(-0.8).foregroundStyle(Theme.ink)
-				}
-			}.padding(.top, 14)
-			FlowLayout {
-				ForEach(cats, id: \.self) { ct in
-					NavigationLink(value: Route.cat(book.key, ct)) { Chip(label: Store.prettyCat(ct), image: s.catImg(ct)) }.buttonStyle(.plain)
-				}
-			}.padding(.top, 16)
 			let pairs = s.pairsWith(name)
 			if !pairs.isEmpty {
 				Eye(T("Pairs most with")).padding(.top, 16).padding(.bottom, 7)
@@ -328,6 +348,16 @@ struct IngredientView: View {
 				SectionHead(title: title) { OtherBookPills(others: others) }
 				CardGrid(book: book, drinks: flat)
 			}.padding(.top, 24)
+		}
+	}
+}
+
+extension IngredientView {
+	fileprivate func catChips(_ s: Store, _ cats: [String]) -> some View {
+		FlowLayout {
+			ForEach(cats, id: \.self) { ct in
+				NavigationLink(value: Route.cat(book.key, ct)) { Chip(label: Store.prettyCat(ct), image: s.catImg(ct)) }.buttonStyle(.plain)
+			}
 		}
 	}
 }
@@ -387,5 +417,30 @@ struct UsageView: View {
 				}
 			}
 		}
+	}
+}
+
+/// .ihave: "I have this ingredient" (signed in, when the current bar location lacks it): adds it
+/// to Your Bar, then says so with a link there
+struct IHaveButton: View {
+	let book: Book
+	let id: Int
+	@ObservedObject private var member = Member.shared
+	@ObservedObject private var account = Account.shared
+	@State private var added = false
+	var body: some View {
+		if account.signedIn && member.canEditBar {
+			if added {
+				NavigationLink(value: Route.bar(book.key, tab: "ing")) { (Text(Image(systemName: "checkmark")) + Text(" " + T("Added to Your Bar"))).ihaveStyle(Theme.soft) }.buttonStyle(.plain)
+			} else if !member.has(.ing(id)) {
+				Button { member.add(.ing(id)); added = true } label: { Text(T("I have this ingredient")).ihaveStyle(Theme.ink) }.buttonStyle(.plain)
+			}
+		}
+	}
+}
+extension View {
+	func ihaveStyle(_ c: Color) -> some View {
+		self.font(Theme.mono(10.9)).kerning(0.33).textCase(.uppercase).foregroundStyle(c).lineLimit(1)
+			.padding(.horizontal, 11).padding(.vertical, 6).overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.line2))
 	}
 }

@@ -50,12 +50,30 @@ struct PageScroll<Content: View>: View {
 /// .crumb: Home / Spirits / Gin (mono, faint); the last item is the current page
 struct Crumb: View {
 	let items: [(String, Route?)]
+	@Environment(\.navRoot) private var toRoot
+	/// "Home" (a book's home page) becomes Home (the book chooser) / PDT (the book's home), so
+	/// every page has a way back to choosing a book
+	private var shown: [(String, Route?, root: Bool)] {
+		var out: [(String, Route?, root: Bool)] = []
+		for (i, it) in items.enumerated() {
+			if i == 0, case .home(let b)? = it.1 {
+				out.append((it.0, nil, true))
+				// on the book's own home page the book is the current page, not a link
+				out.append((Book.get(b).short, items.count == 1 ? nil : it.1, false))
+			} else {
+				out.append((it.0, it.1, false))
+			}
+		}
+		return out
+	}
 	var body: some View {
 		FlowLayout(spacing: 9, lineSpacing: 4) {
-			ForEach(Array(items.enumerated()), id: \.offset) { i, it in
+			ForEach(Array(shown.enumerated()), id: \.offset) { i, it in
 				HStack(spacing: 9) {
 					if i > 0 { Text("/").foregroundStyle(Theme.faint) }
-					if let r = it.1 {
+					if it.root {
+						Button { toRoot() } label: { Text(it.0).foregroundStyle(Theme.faint) }.buttonStyle(.plain)
+					} else if let r = it.1 {
 						NavigationLink(value: r) { Text(it.0).foregroundStyle(Theme.faint) }.buttonStyle(.plain)
 					} else {
 						Text(it.0).foregroundStyle(Theme.faint)
@@ -173,18 +191,49 @@ struct CardGrid: View {
 	let book: Book
 	let drinks: [DrinkRef]
 	var ranked = false
+	@ObservedObject private var member = Member.shared
+	@ObservedObject private var account = Account.shared
 	var body: some View {
+		// signed in with a bar: each card you can't make says what's missing, and with "Hide if
+		// you cannot make" on, only the makeable ones show (pdt_canmake_js)
+		let cm: (names: Set<String>, missing: [String: [String]])? = account.signedIn && !member.items.isEmpty ? member.canMake(book) : nil
+		let hide = account.signedIn && member.hideUnmakeable && cm != nil
+		let shown = hide ? drinks.filter { cm!.names.contains($0.name) } : drinks
 		if drinks.isEmpty {
 			Text(T("No cocktails found.")).font(Theme.mono(13.5)).foregroundStyle(Theme.faint).padding(.vertical, 26)
 		} else {
-			LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 400), spacing: 14, alignment: .top)], alignment: .leading, spacing: 14) {
-				ForEach(Array(drinks.enumerated()), id: \.element.id) { i, d in
-					NavigationLink(value: Route.recipe(book.key, name: d.name)) {
-						DrinkCard(card: book.store.card(d), rank: ranked ? i + 1 : nil)
-					}.buttonStyle(.plain)
+			VStack(alignment: .leading, spacing: 14) {
+				if hide && shown.count < drinks.count { HideNote(book: book) }
+				if shown.isEmpty {
+					Text(T("None of these can be made with Your Bar.")).font(Theme.mono(13.5)).foregroundStyle(Theme.faint).padding(.vertical, 10)
+				}
+				LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 400), spacing: 14, alignment: .top)], alignment: .leading, spacing: 14) {
+					ForEach(Array(shown.enumerated()), id: \.element.id) { i, d in
+						NavigationLink(value: Route.recipe(book.key, name: d.name)) {
+							DrinkCard(card: book.store.card(d), rank: ranked ? i + 1 : nil, missing: cm?.missing[d.name])
+						}.buttonStyle(.plain)
+					}
 				}
 			}
 		}
+	}
+}
+
+/// .cmnote: "Showing only the cocktails you can make with Your Bar. Your Bar · Show all"
+struct HideNote: View {
+	let book: Book
+	var body: some View {
+		HStack(alignment: .firstTextBaseline, spacing: 6) {
+			Text(T("Showing only the cocktails you can make with Your Bar.")).foregroundStyle(Theme.soft)
+			NavigationLink(value: Route.bar(book.key, tab: "make")) { Text(T("Your Bar")).foregroundStyle(Theme.acc).underline() }.buttonStyle(.plain)
+			Text("·").foregroundStyle(Theme.faint)
+			Button { Member.shared.setHideUnmakeable(false) } label: { Text(T("Show all")).foregroundStyle(Theme.acc).underline() }.buttonStyle(.plain)
+		}
+		.font(Theme.sans(14))
+		.padding(.horizontal, 14).padding(.vertical, 9)
+		.frame(maxWidth: .infinity, alignment: .leading)
+		.background(Theme.panel, in: RoundedRectangle(cornerRadius: 10))
+		.overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.line))
 	}
 }
 
@@ -195,14 +244,23 @@ struct DrinkCard: View {
 	var description: String? = nil
 	/// more below the description (a similar cocktail's comparison)
 	var extra: AnyView? = nil
+	/// what the member's bar lacks for it ("Missing: …"), nil = say nothing
+	var missing: [String]? = nil
+	@ObservedObject private var member = Member.shared
 	var body: some View {
 		VStack(alignment: .leading, spacing: 0) {
 			Pic(url: card.image).frame(height: 104).frame(maxWidth: .infinity).padding(.vertical, 4).background(Theme.picBG)
+				.overlay(alignment: .topTrailing) { MarkBadge(wish: member.isWish(card.id), made: member.isMade(card.id)) }
 				.padding(.bottom, 8)
 			(rankText + Text(card.name).font(Theme.sans(16.5, .semibold)).foregroundColor(Theme.ink))
 				.kerning(-0.15).lineSpacing(-1).fixedSize(horizontal: false, vertical: true)
 			Text(description ?? card.ingredients).font(Theme.sans(12.2)).foregroundStyle(Theme.soft).lineSpacing(2)
 				.padding(.top, 7).fixedSize(horizontal: false, vertical: true)
+			if let m = missing, !m.isEmpty {
+				let shown = m.prefix(3).map { T($0) }.joined(separator: ", ") + (m.count > 3 ? " " + T("+{n} more", ["n": m.count - 3]) : "")
+				(Text(T("Missing:")).fontWeight(.semibold) + Text(" " + shown)).font(Theme.sans(12.2)).foregroundStyle(Theme.acc)
+					.lineSpacing(2).padding(.top, 8).fixedSize(horizontal: false, vertical: true)
+			}
 			if let extra { extra }
 			Spacer(minLength: 0)
 		}
@@ -215,6 +273,23 @@ struct DrinkCard: View {
 	private var rankText: Text {
 		guard let rank else { return Text("") }
 		return Text("#\(rank) ").font(Theme.mono(10.5, .medium)).foregroundColor(Theme.faint)
+	}
+}
+
+/// .cmk: a heart (wishlist) and/or check (made) in the top right of a card's picture; when both,
+/// the check sits small on the heart. Fixed colours: the picture is white in dark mode too.
+struct MarkBadge: View {
+	let wish: Bool
+	let made: Bool
+	var body: some View {
+		if wish || made {
+			ZStack {
+				if wish { Image(systemName: "heart.fill").font(.system(size: 16)).foregroundStyle(Color(hex: 0xFF3B1D)) }
+				if made { Image(systemName: "checkmark").font(.system(size: wish ? 9 : 15, weight: .heavy)).foregroundStyle(Color(hex: 0x0A0A0A)).offset(y: wish ? -1 : 0) }
+			}
+			.frame(width: 18, height: 18).opacity(0.3).padding(6)
+			.accessibilityElement().accessibilityLabel([wish ? T("On your wishlist") : nil, made ? T("You've made this") : nil].compactMap { $0 }.joined(separator: " · "))
+		}
 	}
 }
 

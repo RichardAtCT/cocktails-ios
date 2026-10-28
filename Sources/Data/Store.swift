@@ -27,6 +27,11 @@ final class Store {
 		self.book = book
 		db = SQLiteDB(path: Img.dataDir.appendingPathComponent(book.db).path)
 	}
+	/// the language changed: the cached cards and lists hold translated text
+	static func clearCaches() {
+		lock.lock(); let all = Array(stores.values); lock.unlock()
+		for s in all { s.cacheLock.lock(); s.cache = [:]; s.cacheLock.unlock() }
+	}
 	func memo<T>(_ key: String, _ make: () -> T) -> T {
 		cacheLock.lock()
 		if let v = cache[key] as? T { cacheLock.unlock(); return v }
@@ -430,6 +435,10 @@ final class Store {
 		let ings = db.rows(ingsql, cat).map { $0.s(1) }
 		let drinks = refs(db.rows("SELECT d.drink_id, d.name FROM drink d LEFT JOIN popularity p ON p.drink_id=d.drink_id WHERE \(usesql) ORDER BY COALESCE(p.score,0) DESC, d.name", cat))
 		return (ings, drinks)
+	}
+	func ingredientName(_ id: Int) -> String? {
+		let v = db.one("SELECT name FROM ingredient WHERE ingredient_id=?1", id)
+		return v.isNull ? nil : v.string
 	}
 	func ingredientExists(_ name: String) -> Bool { db.one("SELECT COUNT(*) FROM ingredient WHERE name=?1", name).int > 0 }
 	func ingredientId(_ name: String) -> Int? {

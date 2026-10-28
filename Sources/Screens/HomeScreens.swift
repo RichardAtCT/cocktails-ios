@@ -6,9 +6,7 @@ struct BooksView: View {
 		PageScroll {
 			VStack(alignment: .leading, spacing: 0) {
 				H1(T("Choose a cocktail book")).padding(.top, 18)
-				(Text(T("Recipes from ")) + Text(T("The PDT Cocktail Book")).bold().italic() + Text(T(" and ")) +
-				 Text(T("Death & Co: Modern Classic Cocktails")).bold().italic() +
-				 Text(T(". Every ingredient weighed to the gram, every step described. Ready to make on our Half Decent Scale.")))
+				Text(TM("Recipes from <b><i>The PDT Cocktail Book</i></b> and <b><i>Death & Co: Modern Classic Cocktails</i></b>. Every ingredient weighed to the gram, every step described. Ready to make on our <a href=\"/scale\">Half Decent Scale</a>."))
 					.font(Theme.sans(15.2)).foregroundStyle(Theme.soft).lineSpacing(3).padding(.top, 12)
 			}
 			.padding(.bottom, 26)
@@ -18,6 +16,8 @@ struct BooksView: View {
 		}
 		.navigationTitle("Decent Cocktails")
 		.navigationBarTitleDisplayMode(.inline)
+		.toolbar { ToolbarItem(placement: .topBarTrailing) { LanguageMenu() } }
+		.safeAreaInset(edge: .top, spacing: 0) { SiteNav(book: nil) }
 	}
 }
 
@@ -57,10 +57,12 @@ struct BookCard: View {
 				}
 				.padding(EdgeInsets(top: 18, leading: 20, bottom: 20, trailing: 20))
 				.frame(maxWidth: .infinity, alignment: .leading)
+				// the text half in light grey, so each book reads as its own card
+				.background(Theme.bookCard)
 				.contentShape(Rectangle())
 			}.buttonStyle(.plain)
 		}
-		.overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.line))
+		.overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.line2))
 		.clipShape(RoundedRectangle(cornerRadius: 14))
 	}
 }
@@ -80,9 +82,15 @@ struct HomeView: View {
 		PageScroll {
 			// hero
 			VStack(alignment: .leading, spacing: 0) {
-				(Text("\(book.nstated) ") + Text(T("cocktails")).foregroundColor(Theme.acc) + Text(T(" using a ")) + Text(T("scale")).foregroundColor(Theme.green))
+				// Home (the book chooser) / PDT
+				Crumb(items: [(T("Home"), .home(book.key))]).padding(.top, 10)
+				// h1: the <em> words in the accent colour, the scale in green (not italic)
+				Text(TM("{n} <em>cocktails</em> using a <em class=\"g\">scale</em>", ["n": book.nstated], style: [
+					"em": { $0.inlinePresentationIntent = nil; $0.foregroundColor = Theme.acc },
+					"em.g": { $0.inlinePresentationIntent = nil; $0.foregroundColor = Theme.green },
+				]))
 					.font(Theme.sans(40, .semibold)).kerning(-1.2).lineSpacing(-6).foregroundStyle(Theme.ink)
-					.padding(.top, 40)
+					.padding(.top, 16)
 				lede.font(Theme.sans(16)).foregroundStyle(Theme.soft).lineSpacing(4).padding(.top, 26)
 				SearchBox(q: $q) { push(.search(book.key, q: q)) }.padding(.top, 28)
 				Pic(url: book.heroURL, bg: nil).aspectRatio(1, contentMode: .fit)
@@ -124,9 +132,9 @@ struct HomeView: View {
 
 	private var lede: Text {
 		if book.key == "pdt" {
-			return Text(T("Recipes from the ")) + Text(T("Please Don't Tell")).bold().italic() + Text(T(" (New York) bar book. Every ingredient weighed, every step described."))
+			return Text(TM("Recipes from the <b><i>Please Don't Tell</i></b> (New York) bar book. Every ingredient weighed, every step described."))
 		}
-		return Text(T("Recipes from ")) + Text(book.title).bold().italic() + Text(T(". Every ingredient weighed, every step described."))
+		return Text(TM("Recipes from <b><i>{book}</i></b>. Every ingredient weighed, every step described.", ["book": book.title]))
 	}
 }
 
@@ -254,7 +262,13 @@ struct Drill: View {
 // MARK: programmatic navigation
 
 private struct NavPushKey: EnvironmentKey { static let defaultValue: (Route) -> Void = { _ in } }
+private struct NavRootKey: EnvironmentKey { static let defaultValue: () -> Void = {} }
 extension EnvironmentValues {
+	/// back to the book chooser (the stack's root): the crumbs' "Home"
+	var navRoot: () -> Void {
+		get { self[NavRootKey.self] }
+		set { self[NavRootKey.self] = newValue }
+	}
 	/// push a page from code (a search submit, a menu choice)
 	var navPush: (Route) -> Void {
 		get { self[NavPushKey.self] }

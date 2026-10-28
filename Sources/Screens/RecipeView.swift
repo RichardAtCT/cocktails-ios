@@ -11,6 +11,9 @@ struct RecipeView: View {
 	@State private var n: Double = UserDefaults.standard.double(forKey: "drinks") > 0 ? UserDefaults.standard.double(forKey: "drinks") : 1
 	@State private var sizeOpen = false
 	@State private var photoOpen = false
+	@State private var makerOpen = UserDefaults.standard.bool(forKey: "maker")   // debug: -maker 1 opens it
+	@ObservedObject private var member = Member.shared
+	@ObservedObject private var account = Account.shared
 
 	var body: some View {
 		if let r = book.store.recipe(name) {
@@ -23,9 +26,13 @@ struct RecipeView: View {
 	@ViewBuilder private func content(_ r: Recipe) -> some View {
 		PageScroll {
 			let sp = book.store.drinkSpirits(r.id).first
-			Crumb(items: [(T("Home"), .home(book.key)),
-				sp.map { (Store.spiritLabel($0), Route.spirit(book.key, key: $0, and: "")) } ?? (T("All recipes"), .recipes(book.key, sort: "pop")),
-				(r.name, nil)]).padding(.top, 10)
+			HStack(alignment: .center, spacing: 10) {
+				Crumb(items: [(T("Home"), .home(book.key)),
+					sp.map { (Store.spiritLabel($0), Route.spirit(book.key, key: $0, and: "")) } ?? (T("All recipes"), .recipes(book.key, sort: "pop")),
+					(r.name, nil)])
+				Spacer(minLength: 0)
+				if account.signedIn { marks(r) }
+			}.padding(.top, 10)
 			HStack(alignment: .top, spacing: 16) {
 				VStack(alignment: .leading, spacing: 0) {
 					H1(r.name)
@@ -40,7 +47,7 @@ struct RecipeView: View {
 			}
 			ForEach(Array(r.alsoIn.enumerated()), id: \.offset) { _, o in
 				NavigationLink(value: Route.recipe(o.book.key, name: o.name)) {
-					(Text(T("Also in ")) + Text(o.book.title).italic() + Text(o.same ? T(", with the same recipe") : T(", with a different recipe")) + Text(" →"))
+					Text(TM(o.same ? "Also in <em>{book}</em>, with the same recipe" : "Also in <em>{book}</em>, with a different recipe", ["book": o.book.title]) + AttributedString(" →"))
 						.font(Theme.sans(14.4)).foregroundStyle(Theme.ink).underline(color: Theme.line2).multilineTextAlignment(.leading)
 				}.buttonStyle(.plain).padding(.top, 10)
 			}
@@ -68,7 +75,7 @@ struct RecipeView: View {
 					.overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.line))
 					.padding(.top, 14)
 			}
-			scaleCTA.padding(.top, 14)
+			Button { makerOpen = true } label: { scaleCTA }.buttonStyle(.plain).padding(.top, 14)
 			facts(r).padding(.top, 22)
 			if !r.similar.isEmpty {
 				Block(top: 30) {
@@ -86,7 +93,10 @@ struct RecipeView: View {
 			}
 		}
 		.sheet(isPresented: $sizeOpen) { SizePanel(stats: r.stats, n: $n).presentationDetents([.medium, .large]) }
-		.fullScreenCover(isPresented: $photoOpen) { PhotoView(url: r.image, name: r.name) }
+		.fullScreenCover(isPresented: $photoOpen) { PhotoView(url: r.image, name: r.name, big: Img.cocktailBig(book.key, r.name)) }
+		// a page of its own on the stack (not a full-screen cover: on the Mac a cover sits under the
+		// window's toolbar and its Back never worked); Back, Done and the bar's ‹ all pop it
+		.navigationDestination(isPresented: $makerOpen) { MakerView(recipe: r, n: n) }
 	}
 
 	/// the cocktail picture once per drink: 2.5 drinks = 2 glasses and a faded third; 8 at most, then "+N"
@@ -131,17 +141,46 @@ struct RecipeView: View {
 
 	/// .spec: the numbered rows, the serve row at its place
 	private func spec(_ r: Recipe) -> some View {
-		VStack(spacing: 0) {
+		let comments = account.signedIn && member.isMade(r.id)
+		let miss = missing(r)
+		return VStack(spacing: 0) {
 			ForEach(Array(r.rows.enumerated()), id: \.offset) { i, row in
 				if i == r.serveAt { serveRow(r, last: false) }
-				ingRow(row, last: i == r.rows.count - 1)
+				ingRow(row, last: i == r.rows.count - 1 && !comments, missing: miss.contains(row.ingredient))
 			}
-			if r.serveAt >= r.rows.count { serveRow(r, last: true) }
+			if r.serveAt >= r.rows.count { serveRow(r, last: !comments) }
+			if comments { CommentsRow(id: r.id) }
 		}
 		.overlay(Rectangle().stroke(Theme.line))
 	}
+	/// the ingredients the bar doesn't cover (the cards' "Missing:"), signed in with something in the bar
+	private func missing(_ r: Recipe) -> Set<String> {
+		guard account.signedIn, !member.items.isEmpty, let rec = BarIndex.of(book).recByName[r.name] else { return [] }
+		let ix = BarIndex.of(book)
+		return Set(ix.missingNames(rec, ix.owned(member.items)))
+	}
 
-	private func ingRow(_ row: Recipe.Row, last: Bool) -> some View {
+	/// .rmarks: ♡ Wishlist and Made, toggles kept in the pdt_wish / pdt_made permacookies
+	private func marks(_ r: Recipe) -> some View {
+		HStack(spacing: 8) {
+			let w = member.isWish(r.id), m = member.isMade(r.id)
+			Button { member.toggleWish(r.id) } label: {
+				HStack(spacing: 5) {
+					Image(systemName: w ? "heart.fill" : "heart").font(.system(size: 10.5)).foregroundStyle(w ? Theme.acc : Theme.faint)
+					Text(T("Wishlist").uppercased())
+				}.markStyle(on: w)
+			}.buttonStyle(.plain).accessibilityLabel(T("Save to your wishlist")).accessibilityAddTraits(w ? .isSelected : [])
+			Button { member.toggleMade(r.id) } label: {
+				HStack(spacing: 5) {
+					if m { Image(systemName: "checkmark").font(.system(size: 9.5, weight: .bold)) }
+					Text(T("Made").uppercased())
+				}.markStyle(on: m)
+			}.buttonStyle(.plain).accessibilityLabel(T("Mark as made")).accessibilityAddTraits(m ? .isSelected : [])
+		}
+		.fixedSize()
+	}
+
+	private func ingRow(_ row: Recipe.Row, last: Bool, missing: Bool = false) -> some View {
 		HStack(alignment: .center, spacing: 10) {
 			Text("\(row.n)").font(Theme.mono(11.5)).foregroundStyle(Theme.faint).frame(width: 20, alignment: .leading)
 			NavigationLink(value: Route.ingredient(book.key, name: row.ingredient, with: "")) {
@@ -161,34 +200,36 @@ struct RecipeView: View {
 					Text(row.mixLabel.uppercased()).font(Theme.mono(11.5)).kerning(0.45).foregroundStyle(Theme.faint)
 				}
 				.lineLimit(1).minimumScaleFactor(0.8)
+				if missing && !row.isGarnish { missingNote(row) }
 			}
 			Spacer(minLength: 4)
-			amount(row)
+			RowAmount(row: row, n: n)
 		}
 		.padding(.vertical, 15).padding(.horizontal, 16)
 		.overlay(alignment: .bottom) { if !last { Rectangle().fill(Theme.line).frame(height: 1) } }
 	}
 
-	/// the amount at the batch size (pdtAmt): grams, else a counted amount, else "to taste"; the book's amount under it
-	@ViewBuilder private func amount(_ row: Recipe.Row) -> some View {
-		VStack(alignment: .trailing, spacing: 1) {
-			if let g = row.grams {
-				if g.hasPrefix("~") { gramsText("~" + Recipe.num((Double(row.mg) / 1000 * n).rounded())) }
-				else { gramsText(String(format: "%.1f", Double(row.mg) / 1000 * n)) }
-			} else if let c = row.count {
-				Text(Recipe.scaleQ(c, n)).font(Theme.mono(17, .semibold)).foregroundStyle(Theme.acc)
-			} else if row.toTaste {
-				Text(T("to taste")).font(Theme.mono(15, .semibold)).foregroundStyle(Theme.faint)
+	/// .rmiss: "You do not have this ingredient." and up to two substitutes, those in the bar first
+	@ViewBuilder private func missingNote(_ row: Recipe.Row) -> some View {
+		VStack(alignment: .leading, spacing: 3) {
+			Text(T("You do not have this ingredient.")).font(Theme.sans(12.8, .semibold)).foregroundStyle(Theme.acc)
+			if let n = Substitutes.note(row.ingredientId, book: book, items: member.items) {
+				ForEach(Array(n.subs.enumerated()), id: \.offset) { _, x in
+					let (sub, have) = x
+					let name = Text(T(sub.name)).font(Theme.sans(12.8, .semibold)).foregroundColor(Theme.ink)
+					let line = Text(T("Instead:").uppercased()).font(Theme.mono(10.5)).foregroundColor(Theme.faint) + Text(" ") + name
+						+ (have ? Text(" " + T("(in Your Bar)")).foregroundColor(Theme.green) : Text(""))
+						+ Text(": " + T(sub.tip)).foregroundColor(Theme.soft)
+					if let id = sub.id, let nm = book.store.ingredientName(id) {
+						NavigationLink(value: Route.ingredient(book.key, name: nm, with: "")) { line.multilineTextAlignment(.leading) }.buttonStyle(.plain)
+					} else {
+						line
+					}
+				}
+				if !n.none.isEmpty { Text(T(n.none)).foregroundStyle(Theme.soft) }
 			}
-			if let oz = row.oz { Text(Recipe.scaleQ(oz, n)).font(Theme.mono(11.8)).foregroundStyle(Theme.faint) }
 		}
-	}
-	/// "28.4g" with the decimals and the g at half size, the number in the accent colour
-	private func gramsText(_ g: String) -> Text {
-		let parts = g.split(separator: ".", maxSplits: 1).map(String.init)
-		var t = Text(parts[0]).font(Theme.mono(17, .semibold)).foregroundColor(Theme.acc)
-		if parts.count > 1 { t = t + Text(".\(parts[1])").font(Theme.mono(9.5, .semibold)).foregroundColor(Theme.acc) }
-		return t + Text("g").font(Theme.mono(9.5, .semibold)).foregroundColor(Theme.ink)
+		.font(Theme.sans(12.8)).lineSpacing(2).fixedSize(horizontal: false, vertical: true).padding(.top, 5)
 	}
 
 	private func serveRow(_ r: Recipe, last: Bool) -> some View {
@@ -247,7 +288,7 @@ struct RecipeView: View {
 	}
 
 	/// .scaleCta: the scale picture and "Make this cocktail with the Half Decent Scale →"
-	/// (opens the scale maker, milestone 4)
+	/// (opens the scale maker)
 	private var scaleCTA: some View {
 		HStack(spacing: 10) {
 			Pic(url: Img.local("img/scale-cta.avif"), bg: nil).frame(width: 50, height: 32)
@@ -255,6 +296,65 @@ struct RecipeView: View {
 		}
 		.padding(.horizontal, 16).padding(.vertical, 5)
 		.overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.line2))
+	}
+}
+
+/// the amount at the batch size (pdtAmt): grams, else a counted amount, else "to taste"; the book's
+/// amount under it (the recipe's steps and the scale maker's list)
+struct RowAmount: View {
+	let row: Recipe.Row
+	let n: Double
+	var body: some View {
+		VStack(alignment: .trailing, spacing: 1) {
+			if let g = row.grams {
+				if g.hasPrefix("~") { gramsText("~" + Recipe.num((Double(row.mg) / 1000 * n).rounded())) }
+				else { gramsText(String(format: "%.1f", Double(row.mg) / 1000 * n)) }
+			} else if let c = row.count {
+				Text(Recipe.scaleQ(c, n)).font(Theme.mono(17, .semibold)).foregroundStyle(Theme.acc)
+			} else if row.toTaste {
+				Text(T("to taste")).font(Theme.mono(15, .semibold)).foregroundStyle(Theme.faint)
+			}
+			if let oz = row.oz { Text(Recipe.scaleQ(oz, n)).font(Theme.mono(11.8)).foregroundStyle(Theme.faint) }
+		}
+	}
+	/// "28.4g" with the decimals and the g at half size, the number in the accent colour
+	private func gramsText(_ g: String) -> Text {
+		let parts = g.split(separator: ".", maxSplits: 1).map(String.init)
+		var t = Text(parts[0]).font(Theme.mono(17, .semibold)).foregroundColor(Theme.acc)
+		if parts.count > 1 { t = t + Text(".\(parts[1])").font(Theme.mono(9.5, .semibold)).foregroundColor(Theme.acc) }
+		return t + Text("g").font(Theme.mono(9.5, .semibold)).foregroundColor(Theme.ink)
+	}
+}
+
+/// .rcomments: the member's note on a cocktail they've made (pdt_notes), saved when editing ends
+struct CommentsRow: View {
+	let id: Int
+	@ObservedObject private var member = Member.shared
+	@State private var text = ""
+	@FocusState private var focused: Bool
+	var body: some View {
+		HStack(alignment: .firstTextBaseline, spacing: 7) {
+			if !text.isEmpty || focused { Text("\(T("Comments")):").font(Theme.mono(13, .semibold)).foregroundStyle(Theme.soft) }
+			TextField(T("Comments"), text: $text, axis: .vertical)
+				.font(Theme.mono(13)).foregroundStyle(Theme.ink)
+				.focused($focused)
+				.submitLabel(.done)
+				.onSubmit { focused = false }
+				.onChange(of: text) { _, v in if v.contains("\n") { text = v.replacingOccurrences(of: "\n", with: " "); focused = false } }
+		}
+		.padding(.vertical, 14).padding(.horizontal, 16)
+		.onAppear { text = member.note(id) }
+		.onChange(of: focused) { _, f in if !f { member.setNote(id, text); text = member.note(id) } }
+		.onChange(of: member.notes) { _, _ in if !focused { text = member.note(id) } }
+	}
+}
+
+extension View {
+	/// .rmark: small outlined mono label; the pressed one dims
+	func markStyle(on: Bool) -> some View {
+		self.font(Theme.mono(10.9)).kerning(0.33).foregroundStyle(on ? Theme.soft : Theme.faint)
+			.padding(.horizontal, 10).padding(.vertical, 5)
+			.overlay(RoundedRectangle(cornerRadius: 8).stroke(on ? Theme.faint : Theme.line2))
 	}
 }
 

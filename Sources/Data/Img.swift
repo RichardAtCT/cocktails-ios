@@ -27,4 +27,20 @@ enum Img {
 	static func ingredient(_ name: String) -> URL? { avif(ingredients[name]) }
 	static func glass(_ name: String) -> URL? { avif(glasses[name]) }
 	static func spiritPair(_ a: String, _ b: String) -> URL? { local("img/spirits/pair/\(a)-\(b).avif") }
+
+	// the full-size pictures (1024px PNG) aren't bundled: "See it larger" fetches them from the
+	// website, as its overlays do, showing the bundled one until it arrives
+	static let site = URL(string: "https://decentespresso.com/cocktails/img/")!
+	private static func remote(_ rel: String) -> URL? {
+		rel.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed).flatMap { URL(string: $0, relativeTo: site)?.absoluteURL }
+	}
+	static func cocktailBig(_ book: String, _ name: String) -> URL? { drinks[book]?[name].flatMap { remote("\($0).png") } }
+	static func ingredientBig(_ name: String) -> URL? { ingredients[name].flatMap { remote("\($0).png") } }
+	static func spiritPairBig(_ a: String, _ b: String) -> URL? { spiritPair(a, b) == nil ? nil : remote("spirits/pair/\(a)-\(b).png") }
+	/// the real product photo an ingredient's picture was modelled on (ingredient.bottle_img; the
+	/// overlay's "product photo" link)
+	static func productPhoto(_ name: String) -> URL? { productPhotos[name].flatMap { remote($0) } }
+	private static let productPhotos: [String: String] = Book.all.reduce(into: [:]) { m, b in
+		for r in b.store.db.rows("SELECT name, bottle_img FROM ingredient WHERE bottle_img IS NOT NULL AND bottle_img <> ''") where m[r.s(0)] == nil { m[r.s(0)] = r.s(1) }
+	}
 }

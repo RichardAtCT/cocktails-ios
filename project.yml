@@ -22,6 +22,8 @@ targets:
       - path: Sources
       - path: Resources/Fonts
         buildPhase: resources
+      # the app icon: the maker's shaker-on-the-scale picture (cocktails/img/maker/shaker-scale.jpg) on white
+      - path: Resources/Assets.xcassets
       - path: Resources/Data
         type: folder
         buildPhase: resources
@@ -32,11 +34,15 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.decentespresso.cocktails
-        PRODUCT_NAME: Cocktails
+        # the app's name everywhere (Finder, the Mac menu bar, the Dock, the home screen); the Swift
+        # module keeps the short name
+        PRODUCT_NAME: Decent Cocktails
+        PRODUCT_MODULE_NAME: Cocktails
         TARGETED_DEVICE_FAMILY: "1,2,6"
         SUPPORTS_MACCATALYST: YES
         DERIVE_MACCATALYST_PRODUCT_BUNDLE_IDENTIFIER: NO
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Resources/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_USER_SCRIPT_SANDBOXING: YES

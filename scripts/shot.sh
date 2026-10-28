@@ -4,10 +4,10 @@
 # extra launch arguments in $SHOT_ARGS, e.g. SHOT_ARGS="-drinks 2"
 set -e
 cd "$(dirname "$0")/.."
-APP=build/Build/Products/Debug-maccatalyst/Cocktails.app
+APP="build/Build/Products/Debug-maccatalyst/Decent Cocktails.app"
 W=${3:-430}; H=${4:-932}
-pkill -x Cocktails 2>/dev/null || true; sleep 0.5
-"$APP/Contents/MacOS/Cocktails" -open "$1" $SHOT_ARGS >/dev/null 2>&1 &
+pkill -x "Decent Cocktails" 2>/dev/null || true; sleep 0.5
+"$APP/Contents/MacOS/Decent Cocktails" -open "$1" $SHOT_ARGS >/dev/null 2>&1 &
 sleep 3
 osascript -e "tell application \"System Events\" to tell (first process whose name is \"Cocktails\") to set size of front window to {$W, $H}" >/dev/null 2>&1 || true
 sleep 1.2

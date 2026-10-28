@@ -15,11 +15,12 @@ enum Route: Hashable {
 	case ingredient(String, name: String, with: String) // /<book>/ingredients/<a>[/<b>]
 	case search(String, q: String)                 // /<book>/search?q=
 	case usage(String)                             // /<book>/usage
+	case bar(String, tab: String)                  // /<book>/bar#<tab>: Your Bar
 
 	var bookKey: String {
 		switch self {
 		case .home(let b), .recipes(let b, _), .recipe(let b, _), .spirits(let b), .spirit(let b, _, _), .glasses(let b),
-			 .glass(let b, _), .category(let b, _), .ingredients(let b), .ingredient(let b, _, _), .search(let b, _), .usage(let b):
+			 .glass(let b, _), .category(let b, _), .ingredients(let b), .ingredient(let b, _, _), .search(let b, _), .usage(let b), .bar(let b, _):
 			return b
 		}
 	}
@@ -59,6 +60,7 @@ enum Route: Hashable {
 		case .ingredient(let b, let name, let with): IngredientView(book: Book.get(b), name: name, with: with)
 		case .search(let b, let q): SearchView(book: Book.get(b), initial: q)
 		case .usage(let b): UsageView(book: Book.get(b))
+		case .bar(let b, let tab): BarView(book: Book.get(b), tab: tab)
 		}
 	}
 }
@@ -87,6 +89,7 @@ extension Route {
 		case "ingredients": page = s3.isEmpty ? .ingredients(b) : .ingredient(b, name: s3, with: s4)
 		case "search": page = .search(b, q: q("q"))
 		case "usage": page = .usage(b)
+		case "bar": page = .bar(b, tab: comps.fragment ?? "make")
 		default: page = nil
 		}
 		return [.home(b)] + (page.map { [$0] } ?? [])
