@@ -1,0 +1,30 @@
+import Foundation
+
+/// Picture locations. Each book db names its pictures in the `image` column of drink,
+/// ingredient and glass (admin/cocktail_lib.py fill_image_columns): the path below
+/// cocktails/img/ without the extension, NULL where there's none. The AVIFs are bundled
+/// under Data/img by scripts/sync_data.sh. A missing file = no picture (as on the site).
+enum Img {
+	static let dataDir: URL = Bundle.main.resourceURL!.appendingPathComponent("Data")
+
+	/// name -> image, per table; ingredients and glasses are shared between the books, so
+	/// theirs are merged across every db; a drink's is per book (names collide across books)
+	private static func names(_ table: String, _ db: SQLiteDB) -> [String: String] {
+		var m: [String: String] = [:]
+		for r in db.rows("SELECT name, image FROM \(table) WHERE image IS NOT NULL AND name IS NOT NULL") { m[r.s(0)] = r.s(1) }
+		return m
+	}
+	private static let drinks: [String: [String: String]] = Dictionary(uniqueKeysWithValues: Book.all.map { ($0.key, names("drink", $0.store.db)) })
+	private static let ingredients: [String: String] = Book.all.reduce(into: [:]) { m, b in m.merge(names("ingredient", b.store.db)) { a, _ in a } }
+	private static let glasses: [String: String] = Book.all.reduce(into: [:]) { m, b in m.merge(names("glass", b.store.db)) { a, _ in a } }
+
+	static func local(_ rel: String) -> URL? {
+		let u = dataDir.appendingPathComponent(rel)
+		return FileManager.default.fileExists(atPath: u.path) ? u : nil
+	}
+	private static func avif(_ image: String?) -> URL? { image.flatMap { local("img/\($0).avif") } }
+	static func cocktail(_ book: String, _ name: String) -> URL? { avif(drinks[book]?[name]) }
+	static func ingredient(_ name: String) -> URL? { avif(ingredients[name]) }
+	static func glass(_ name: String) -> URL? { avif(glasses[name]) }
+	static func spiritPair(_ a: String, _ b: String) -> URL? { local("img/spirits/pair/\(a)-\(b).avif") }
+}
