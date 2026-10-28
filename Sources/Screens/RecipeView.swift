@@ -25,58 +25,9 @@ struct RecipeView: View {
 
 	@ViewBuilder private func content(_ r: Recipe) -> some View {
 		PageScroll {
-			let sp = book.store.drinkSpirits(r.id).first
-			HStack(alignment: .center, spacing: 10) {
-				Crumb(items: [(T("Home"), .home(book.key)),
-					sp.map { (Store.spiritLabel($0), Route.spirit(book.key, key: $0, and: "")) } ?? (T("All recipes"), .recipes(book.key, sort: "pop")),
-					(r.name, nil)])
-				Spacer(minLength: 0)
-				if account.signedIn { marks(r) }
-			}.padding(.top, 10)
-			HStack(alignment: .top, spacing: 16) {
-				VStack(alignment: .leading, spacing: 0) {
-					H1(r.name)
-					if let d = r.description {
-						Text(d).font(Theme.sans(15.2)).foregroundStyle(Theme.soft).lineSpacing(3).padding(.top, 12)
-					}
-				}
-				if r.image != nil {
-					Button { photoOpen = true } label: { photos(r) }.buttonStyle(.plain)
-						.accessibilityLabel(T("See it larger"))
-				}
+			VW { vw in
+				if Theme.phone(vw) { phoneLayout(r) } else { CW { cw in wideLayout(r, vw, cw) } }
 			}
-			ForEach(Array(r.alsoIn.enumerated()), id: \.offset) { _, o in
-				NavigationLink(value: Route.recipe(o.book.key, name: o.name)) {
-					Text(TM(o.same ? "Also in <em>{book}</em>, with the same recipe" : "Also in <em>{book}</em>, with a different recipe", ["book": o.book.title]) + AttributedString(" →"))
-						.font(Theme.sans(14.4)).foregroundStyle(Theme.ink).underline(color: Theme.line2).multilineTextAlignment(.leading)
-				}.buttonStyle(.plain).padding(.top, 10)
-			}
-			// ingredient strip: one picture per ingredient, edge to edge, scaled to fit one line
-			if !r.strip.isEmpty {
-				HStack(alignment: .bottom, spacing: 0) {
-					ForEach(r.strip, id: \.self) { ing in
-						NavigationLink(value: Route.ingredient(book.key, name: ing, with: "")) {
-							Pic(url: Img.ingredient(ing)).aspectRatio(1, contentMode: .fit).frame(maxHeight: 100)
-						}.buttonStyle(.plain)
-					}
-				}
-				.frame(maxWidth: .infinity, alignment: .leading)
-				.padding(.top, 16).padding(.bottom, 6)
-			}
-			batch.frame(maxWidth: .infinity, alignment: .trailing).padding(.top, 18)
-			spec(r).padding(.top, 10)
-			if n > 1, let w = r.stats?.water, w > 0 {
-				Text(T("Pre-batching {n} drinks? Add {w} g of water to stand in for the ice dilution, and chill it well.",
-					["n": Recipe.num(n), "w": Int((w * n).rounded())]))
-					.font(Theme.sans(13.8)).foregroundStyle(Theme.soft).lineSpacing(3)
-					.frame(maxWidth: .infinity, alignment: .leading)
-					.padding(.horizontal, 14).padding(.vertical, 10)
-					.background(Theme.panel, in: RoundedRectangle(cornerRadius: 10))
-					.overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.line))
-					.padding(.top, 14)
-			}
-			Button { makerOpen = true } label: { scaleCTA }.buttonStyle(.plain).padding(.top, 14)
-			facts(r).padding(.top, 22)
 			if !r.similar.isEmpty {
 				Block(top: 30) {
 					SectionHead(title: T("Similar cocktails"))
@@ -97,6 +48,139 @@ struct RecipeView: View {
 		// a page of its own on the stack (not a full-screen cover: on the Mac a cover sits under the
 		// window's toolbar and its Back never worked); Back, Done and the bar's ‹ all pop it
 		.navigationDestination(isPresented: $makerOpen) { MakerView(recipe: r, n: n) }
+	}
+
+	/// phones (pdt_mobile.css <= 699px): the photo floated beside the title, then the steps, the
+	/// scale button and the facts in one column
+	@ViewBuilder private func phoneLayout(_ r: Recipe) -> some View {
+		crumbRow(r).padding(.top, 10)
+		// the photo floated right of the title and description, as tall as them (the page's script),
+		// at most 40% of the width: the picture trimmed on all sides (tz/)
+		CW { cw in
+			IngHero(row: cw, pair: false, gap: 16, cap: 1000, minH: 150) {
+				VStack(alignment: .leading, spacing: 0) {
+					H1(r.name)
+					if let d = r.description {
+						Text(d).font(Theme.sans(15.2)).foregroundStyle(Theme.soft).lineSpacing(3).padding(.top, 12)
+					}
+				}
+			} picture: { h in
+				if r.image != nil {
+					Button { photoOpen = true } label: {
+						if n > 1 { photos(r) } else { Pic(url: Img.cocktailTrim(book.key, r.name) ?? r.image, bg: nil).frame(maxWidth: cw * 0.4, maxHeight: h) }
+					}
+					.buttonStyle(.plain).accessibilityLabel(T("See it larger"))
+				}
+			}
+		}
+		alsoIn(r)
+		strip(r, height: 100, packed: false).padding(.top, 16).padding(.bottom, 6)
+		batch.frame(maxWidth: .infinity, alignment: .trailing).padding(.top, 18)
+		spec(r).padding(.top, 10)
+		prebatch(r)
+		Button { makerOpen = true } label: { scaleCTA }.buttonStyle(.plain).padding(.top, 14)
+		facts(r).padding(.top, 22)
+	}
+
+	/// .recipe: two columns (1.55fr 1fr; 1.45fr 1fr on a portrait iPad, 700-860px): the steps on the
+	/// left; the photo, the facts and the scale button on the right
+	@ViewBuilder private func wideLayout(_ r: Recipe, _ vw: CGFloat, _ w: CGFloat) -> some View {
+		let gap = min(54, max(28, vw * 0.05))
+		let k: CGFloat = Theme.narrow(vw) ? 1.45 : 1.55
+		let aside = (w - gap) / (k + 1)
+		HStack(alignment: .top, spacing: gap) {
+			VStack(alignment: .leading, spacing: 0) {
+				crumbRow(r).padding(.top, 10)
+				H1(r.name)
+				if let d = r.description {
+					Text(d).font(Theme.sans(15.2)).foregroundStyle(Theme.soft).lineSpacing(3).padding(.top, 12)
+						.frame(maxWidth: 600, alignment: .leading)
+				}
+				alsoIn(r)
+				strip(r, height: 140, packed: true).padding(.top, 10).padding(.bottom, 6)
+				batch.frame(maxWidth: .infinity, alignment: .trailing).padding(.top, 12)
+				spec(r).padding(.top, 12)
+				prebatch(r)
+			}
+			.frame(maxWidth: .infinity, alignment: .leading)
+			VStack(alignment: .leading, spacing: 18) {
+				if r.image != nil {
+					Button { photoOpen = true } label: { bigPhotos(r) }.buttonStyle(.plain)
+						.accessibilityLabel(T("See it larger"))
+				}
+				facts(r)
+				Button { makerOpen = true } label: { scaleCTA }.buttonStyle(.plain)
+			}
+			.frame(width: aside)
+			.padding(.top, 14)
+		}
+	}
+
+	private func crumbRow(_ r: Recipe) -> some View {
+		let sp = book.store.drinkSpirits(r.id).first
+		return HStack(alignment: .center, spacing: 10) {
+			Crumb(items: [(T("Home"), .home(book.key)),
+				sp.map { (Store.spiritLabel($0), Route.spirit(book.key, key: $0, and: "")) } ?? (T("All recipes"), .recipes(book.key, sort: "pop")),
+				(r.name, nil)])
+			Spacer(minLength: 0)
+			if account.signedIn { marks(r) }
+		}
+	}
+	@ViewBuilder private func alsoIn(_ r: Recipe) -> some View {
+		ForEach(Array(r.alsoIn.enumerated()), id: \.offset) { _, o in
+			NavigationLink(value: Route.recipe(o.book.key, name: o.name)) {
+				Text(TM(o.same ? "Also in <em>{book}</em>, with the same recipe" : "Also in <em>{book}</em>, with a different recipe", ["book": o.book.title]) + AttributedString(" →"))
+					.font(Theme.sans(14.4)).foregroundStyle(Theme.ink).underline(color: Theme.line2).multilineTextAlignment(.leading)
+			}.buttonStyle(.plain).padding(.top, 10)
+		}
+	}
+	/// .ingstrip: one picture per ingredient, trimmed to the bottle (ingredients/tc/), each at its
+	/// own height on the site's scale (216px picture = 140px) and packed edge to edge, bottoms
+	/// lined up; smaller only when they don't fit the width
+	@ViewBuilder private func strip(_ r: Recipe, height: CGFloat, packed: Bool) -> some View {
+		if !r.strip.isEmpty {
+			StripLayout {
+				ForEach(r.strip, id: \.self) { ing in
+					NavigationLink(value: Route.ingredient(book.key, name: ing, with: "")) {
+						Pic(url: Img.ingredientTrim(ing) ?? Img.ingredient(ing), bg: nil)
+					}.buttonStyle(.plain)
+					.layoutValue(key: StripSize.self, value: Img.ingredientTrim(ing).flatMap { PicCache.image($0)?.size } ?? CGSize(width: 216, height: 216))
+				}
+			}
+			.frame(maxWidth: .infinity, alignment: .leading)
+		}
+	}
+	@ViewBuilder private func prebatch(_ r: Recipe) -> some View {
+		if n > 1, let w = r.stats?.water, w > 0 {
+			Text(T("Pre-batching {n} drinks? Add {w} g of water to stand in for the ice dilution, and chill it well.",
+				["n": Recipe.num(n), "w": Int((w * n).rounded())]))
+				.font(Theme.sans(13.8)).foregroundStyle(Theme.soft).lineSpacing(3)
+				.frame(maxWidth: .infinity, alignment: .leading)
+				.padding(.horizontal, 14).padding(.vertical, 10)
+				.background(Theme.panel, in: RoundedRectangle(cornerRadius: 10))
+				.overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.line))
+				.padding(.top, 14)
+		}
+	}
+	/// .rviz in the right column: the photo at the column's width (white, padded 4 x 18); a round
+	/// shows it once per drink, as the site's .rviz.multi grid does
+	@ViewBuilder private func bigPhotos(_ r: Recipe) -> some View {
+		let k = n > 1 ? min(8, Int((n - 1e-9).rounded(.up))) : 1
+		Group {
+			if k < 2 {
+				Pic(url: r.image).aspectRatio(1, contentMode: .fit)
+			} else {
+				let cols = k <= 3 ? k : (k <= 4 ? 2 : (k <= 6 ? 3 : 4))
+				LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: cols), spacing: 6) {
+					ForEach(0..<k, id: \.self) { i in
+						Pic(url: r.image).aspectRatio(1, contentMode: .fit)
+							.opacity(i == k - 1 && n < 8 && n.truncatingRemainder(dividingBy: 1) > 1e-9 ? 0.35 : 1)
+					}
+				}
+			}
+		}
+		.padding(.horizontal, 18).padding(.vertical, 4)
+		.background(Theme.picBG)
 	}
 
 	/// the cocktail picture once per drink: 2.5 drinks = 2 glasses and a faded third; 8 at most, then "+N"
@@ -143,15 +227,15 @@ struct RecipeView: View {
 	private func spec(_ r: Recipe) -> some View {
 		let comments = account.signedIn && member.isMade(r.id)
 		let miss = missing(r)
-		return VStack(spacing: 0) {
+		return VW { vw in VStack(spacing: 0) {
 			ForEach(Array(r.rows.enumerated()), id: \.offset) { i, row in
 				if i == r.serveAt { serveRow(r, last: false) }
-				ingRow(row, last: i == r.rows.count - 1 && !comments, missing: miss.contains(row.ingredient))
+				ingRow(row, last: i == r.rows.count - 1 && !comments, missing: miss.contains(row.ingredient), wide: !Theme.small(vw))
 			}
 			if r.serveAt >= r.rows.count { serveRow(r, last: !comments) }
 			if comments { CommentsRow(id: r.id) }
 		}
-		.overlay(Rectangle().stroke(Theme.line))
+		.overlay(Rectangle().stroke(Theme.line)) }
 	}
 	/// the ingredients the bar doesn't cover (the cards' "Missing:"), signed in with something in the bar
 	private func missing(_ r: Recipe) -> Set<String> {
@@ -180,13 +264,33 @@ struct RecipeView: View {
 		.fixedSize()
 	}
 
-	private func ingRow(_ row: Recipe.Row, last: Bool, missing: Bool = false) -> some View {
-		HStack(alignment: .center, spacing: 10) {
-			Text("\(row.n)").font(Theme.mono(11.5)).foregroundStyle(Theme.faint).frame(width: 20, alignment: .leading)
+	/// .spec .r: wider than 520px the type and action sit in their own 96px column before the name
+	/// (thumbnail 44px); on phones under the name (thumbnail 40px)
+	private func ingRow(_ row: Recipe.Row, last: Bool, missing: Bool = false, wide: Bool = false) -> some View {
+		HStack(alignment: .center, spacing: wide ? 16 : 10) {
+			Text("\(row.n)").font(Theme.mono(11.5)).foregroundStyle(Theme.faint).frame(width: wide ? 10 : 20, alignment: .leading)
 			NavigationLink(value: Route.ingredient(book.key, name: row.ingredient, with: "")) {
-				Pic(url: Img.ingredient(row.ingredient)).frame(width: 40, height: 40)
+				Pic(url: Img.ingredient(row.ingredient)).frame(width: wide ? 44 : 40, height: wide ? 44 : 40)
 			}.buttonStyle(.plain)
-			VStack(alignment: .leading, spacing: 2) {
+			if wide {
+				VStack(alignment: .leading, spacing: 6) {
+					if !row.cat.isEmpty {
+						NavigationLink(value: Route.cat(book.key, row.cat)) {
+							Text(Store.prettyCat(row.cat).uppercased()).font(Theme.mono(11.5, .semibold)).kerning(0.25).foregroundStyle(Theme.soft)
+								.multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+						}.buttonStyle(.plain)
+					}
+					Text(row.mixLabel.uppercased()).font(Theme.mono(10.6)).kerning(0.45).foregroundStyle(Theme.faint)
+				}
+				.frame(width: 96, alignment: .leading)
+				VStack(alignment: .leading, spacing: 2) {
+					NavigationLink(value: Route.ingredient(book.key, name: row.ingredient, with: "")) {
+						Text(row.label).font(Theme.sans(16.6, .semibold)).foregroundStyle(Theme.ink).multilineTextAlignment(.leading)
+							.fixedSize(horizontal: false, vertical: true)
+					}.buttonStyle(.plain)
+					if missing && !row.isGarnish { missingNote(row) }
+				}
+			} else { VStack(alignment: .leading, spacing: 2) {
 				NavigationLink(value: Route.ingredient(book.key, name: row.ingredient, with: "")) {
 					Text(row.label).font(Theme.sans(16, .semibold)).foregroundStyle(Theme.ink).multilineTextAlignment(.leading)
 						.fixedSize(horizontal: false, vertical: true)
@@ -201,7 +305,7 @@ struct RecipeView: View {
 				}
 				.lineLimit(1).minimumScaleFactor(0.8)
 				if missing && !row.isGarnish { missingNote(row) }
-			}
+			} }
 			Spacer(minLength: 4)
 			RowAmount(row: row, n: n)
 		}
@@ -257,31 +361,38 @@ struct RecipeView: View {
 	@ViewBuilder private func facts(_ r: Recipe) -> some View {
 		let rows = r.facts(n)
 		if !rows.isEmpty || r.cite != nil {
-			VStack(alignment: .leading, spacing: 0) {
+			// .facts: a grid of pictures | label | values, each column as wide as its widest cell
+			Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
 				ForEach(Array(rows.enumerated()), id: \.offset) { i, fr in
-					HStack(alignment: .center, spacing: 12) {
-						FactIcons(pics: fr.icons, more: fr.more).frame(width: 86, alignment: .leading)
-						Text(fr.label).font(Theme.sans(15.2)).foregroundStyle(Theme.soft)
-						Spacer(minLength: 8)
+					GridRow(alignment: .center) {
+						FactIcons(pics: fr.icons, more: fr.more).padding(.trailing, 8)
+						Text(fr.label).font(Theme.sans(15.2)).foregroundStyle(Theme.soft).lineLimit(1).fixedSize()
+							.padding(.leading, 5).padding(.trailing, 12)
 						VStack(alignment: .trailing, spacing: 2) {
 							ForEach(Array(fr.lines.enumerated()), id: \.offset) { j, v in
 								Text(v).font(Theme.sans(15.2, j == 0 ? .semibold : .medium)).foregroundStyle(j == 0 ? Theme.ink : Theme.soft)
+									.fixedSize(horizontal: false, vertical: true)
 							}
-						}.multilineTextAlignment(.trailing)
+						}
+						.multilineTextAlignment(.trailing)
+						.frame(maxWidth: .infinity, alignment: .trailing)
 					}
-					.padding(.vertical, 9)
-					.overlay(alignment: .bottom) { if i < rows.count - 1 || r.cite != nil { Rectangle().fill(Theme.line).frame(height: 1) } }
+					.padding(.vertical, 8)
+					if i < rows.count - 1 || r.cite != nil {
+						Rectangle().fill(Theme.line).frame(height: 1).gridCellUnsizedAxes(.horizontal)
+					}
 				}
 				if let c = r.cite {
-					HStack(alignment: .top, spacing: 10) {
-						Image(systemName: "book").foregroundStyle(Color(hex: 0x7A5530))
-						Text(c).font(Theme.sans(15.2)).foregroundStyle(Theme.soft)
+					GridRow(alignment: .top) {
+						Image(systemName: "book").foregroundStyle(Color(hex: 0x7A5530)).padding(.top, 2)
+						Text(c).font(Theme.sans(15.2)).foregroundStyle(Theme.soft).padding(.leading, 5)
+							.fixedSize(horizontal: false, vertical: true)
+							.gridCellColumns(2)
 					}.padding(.vertical, 8)
 				}
 			}
 			.padding(.horizontal, 16).padding(.vertical, 4)
 			.overlay(Rectangle().stroke(Theme.line))
-			.frame(maxWidth: 520, alignment: .leading)
 			.contentShape(Rectangle())
 			.onTapGesture { if r.stats != nil { sizeOpen = true } }
 		}
@@ -293,7 +404,10 @@ struct RecipeView: View {
 		HStack(spacing: 10) {
 			Pic(url: Img.local("img/scale-cta.avif"), bg: nil).frame(width: 50, height: 32)
 			Text("\(T("Make this cocktail with the Half Decent Scale")) →").font(Theme.sans(13.8, .medium)).foregroundStyle(Theme.soft)
+				.multilineTextAlignment(.leading)
 		}
+		// .scaleCta .btn: always the full width
+		.frame(maxWidth: .infinity, alignment: .leading)
 		.padding(.horizontal, 16).padding(.vertical, 5)
 		.overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.line2))
 	}
@@ -408,5 +522,31 @@ struct BatchButton: ButtonStyle {
 			.overlay(RoundedRectangle(cornerRadius: 8).stroke(configuration.isPressed ? Theme.ink : Theme.line2))
 			.opacity(enabled ? 1 : 0.3)
 			.contentShape(Rectangle())
+	}
+}
+
+/// the natural size of a strip picture (pixels, on the 216px scale)
+struct StripSize: LayoutValueKey { static let defaultValue = CGSize(width: 216, height: 216) }
+/// .ingstrip's flow: each at size x 140/216, side by side, bottoms aligned; all scaled down
+/// together when the row is wider than the space
+struct StripLayout: Layout {
+	private func sizes(_ subviews: Subviews, _ width: CGFloat?) -> [CGSize] {
+		let k: CGFloat = 140 / 216
+		let natural = subviews.map { let s = $0[StripSize.self]; return CGSize(width: s.width * k, height: s.height * k) }
+		let total = natural.reduce(0) { $0 + $1.width }
+		let f = min(1, (width ?? total) / max(total, 1))
+		return natural.map { CGSize(width: $0.width * f, height: $0.height * f) }
+	}
+	func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+		let s = sizes(subviews, proposal.width)
+		return CGSize(width: s.reduce(0) { $0 + $1.width }, height: s.map(\.height).max() ?? 0)
+	}
+	func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+		let s = sizes(subviews, bounds.width)
+		var x = bounds.minX
+		for (v, sz) in zip(subviews, s) {
+			v.place(at: CGPoint(x: x, y: bounds.maxY), anchor: .bottomLeading, proposal: ProposedViewSize(sz))
+			x += sz.width
+		}
 	}
 }

@@ -2,22 +2,100 @@ import SwiftUI
 
 /// /cocktails/ (direct_cocktails_home): "Choose a cocktail book" and one card per book.
 struct BooksView: View {
+	@State private var hidden = VideoCard.isHidden
 	var body: some View {
 		PageScroll {
-			VStack(alignment: .leading, spacing: 0) {
-				H1(T("Choose a cocktail book")).padding(.top, 18)
-				Text(TM("Recipes from <b><i>The PDT Cocktail Book</i></b> and <b><i>Death & Co: Modern Classic Cocktails</i></b>. Every ingredient weighed to the gram, every step described. Ready to make on our <a href=\"/scale\">Half Decent Scale</a>."))
-					.font(Theme.sans(15.2)).foregroundStyle(Theme.soft).lineSpacing(3).padding(.top, 12)
+			// .phgrid: the heading and the tour video side by side above 860px, stacked below
+			VW { vw in
+				let head = VStack(alignment: .leading, spacing: 0) {
+					H1(T("Choose a cocktail book"))
+					Text(TM("Recipes from <b><i>The PDT Cocktail Book</i></b> and <b><i>Death & Co: Modern Classic Cocktails</i></b>. Every ingredient weighed to the gram, every step described. Ready to make on our <a href=\"/scale\">Half Decent Scale</a>."))
+						.font(Theme.sans(15.2)).foregroundStyle(Theme.soft).lineSpacing(3).padding(.top, 12)
+				}
+				if Theme.narrow(vw) || hidden {
+					head.padding(.top, 18)
+					if !hidden { VideoCard(hidden: $hidden).padding(.top, 22) }
+				} else {
+					HStack(alignment: .center, spacing: 44) {
+						head.frame(maxWidth: .infinity, alignment: .leading)
+						VideoCard(hidden: $hidden).frame(maxWidth: 440)
+					}.padding(.top, 18)
+				}
 			}
 			.padding(.bottom, 26)
-			LazyVGrid(columns: [GridItem(.adaptive(minimum: 320), spacing: 26)], spacing: 26) {
-				ForEach(Book.all) { BookCard(book: $0) }
+			BookGrid()
+		}
+		// hidden on the website (or another device) by a signed-in member: hide it here too
+		.task {
+			if !hidden, Account.shared.signedIn, case .value(let v) = await Account.shared.get("pdt_vid_hidden"), v == "1" {
+				UserDefaults.standard.set(true, forKey: "vidHidden"); hidden = true
 			}
 		}
 		.navigationTitle("Decent Cocktails")
 		.navigationBarTitleDisplayMode(.inline)
 		.toolbar { ToolbarItem(placement: .topBarTrailing) { LanguageMenu() } }
 		.safeAreaInset(edge: .top, spacing: 0) { SiteNav(book: nil) }
+	}
+}
+
+/// .vid: the explainer video's card (pdt_video_card): its thumbnail with "Watch the 2-minute
+/// tour" and a play button, opening the YouTube video; the x hides it for good (on the device, and
+/// for a signed-in member in the permacookie pdt_vid_hidden, which hides it on the website too)
+struct VideoCard: View {
+	@Binding var hidden: Bool
+	@Environment(\.vw) private var vw
+	@State private var playing = false
+	static let youtube = URL(string: "https://www.youtube.com/watch?v=JzXRUSfnMUs")!
+	static var isHidden: Bool { UserDefaults.standard.bool(forKey: "vidHidden") }
+	var body: some View {
+		Button { playing = true } label: {
+			Pic(url: Img.local("img/video/explainer.jpg"), bg: nil).aspectRatio(16 / 9, contentMode: .fit)
+				.overlay {
+					HStack(spacing: 10) {
+						// .vidcap: clamp(1.8rem, 4.8vw, 2.3rem), on two lines as the site's wraps
+						Text(T("Watch the 2-minute tour").replacingOccurrences(of: "-", with: "\u{2011}")).font(Theme.sans(min(36.8, max(28.8, vw * 0.048)), .bold)).foregroundStyle(.white)
+							.lineSpacing(-4).shadow(color: .black.opacity(0.55), radius: 2, y: 1).multilineTextAlignment(.center)
+							.frame(maxWidth: min(36.8, max(28.8, vw * 0.048)) * 6.5)
+						Circle().fill(Theme.acc).frame(width: 46, height: 46)
+							.overlay(Image(systemName: "play.fill").font(.system(size: 18)).foregroundStyle(.white).offset(x: 2))
+							.shadow(color: .black.opacity(0.3), radius: 6, y: 4)
+					}
+					.padding(.vertical, 7).padding(.leading, 20).padding(.trailing, 7)
+					.background(Color.black.opacity(0.6), in: Capsule())
+					.padding(.horizontal, 12)
+				}
+				.clipShape(RoundedRectangle(cornerRadius: 14))
+				.overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.line))
+		}
+		.buttonStyle(.plain)
+		.accessibilityLabel(T("Play the Decent Cocktails video"))
+		.overlay(alignment: .topTrailing) {
+			Button { hide() } label: {
+				Image(systemName: "xmark").font(.system(size: 13, weight: .bold)).foregroundStyle(.white)
+					.frame(width: 32, height: 32).background(Color(hex: 0x55554E), in: Circle())
+					.overlay(Circle().stroke(Theme.paper, lineWidth: 2))
+			}
+			.buttonStyle(.plain).focusEffectDisabled()
+			.offset(x: 12, y: -12)
+			.accessibilityLabel(T("Hide this video"))
+		}
+		.sheet(isPresented: $playing) { SafariView(url: Self.youtube).ignoresSafeArea() }
+	}
+	private func hide() {
+		UserDefaults.standard.set(true, forKey: "vidHidden")
+		hidden = true
+		if Account.shared.signedIn { Task { await Account.shared.set("pdt_vid_hidden", "1") } }
+	}
+}
+
+/// .bkgrid: columns of min(100%, 420px), 26 apart: one on a phone or a portrait iPad, two wider
+struct BookGrid: View {
+	@Environment(\.cw) private var w
+	var body: some View {
+		let n = max(1, Int((w + 26) / (420 + 26)))
+		LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 26, alignment: .top), count: n), spacing: 26) {
+			ForEach(Book.all) { BookCard(book: $0) }
+		}
 	}
 }
 
@@ -80,22 +158,35 @@ struct HomeView: View {
 	var body: some View {
 		let s = book.store
 		PageScroll {
-			// hero
-			VStack(alignment: .leading, spacing: 0) {
-				// Home (the book chooser) / PDT
+			// .hero: the headline (clamp(2.5rem, 6.2vw, 4.8rem)), the lede and the search; above
+			// 860px the picture beside them, below it under them
+			VW { vw in
 				Crumb(items: [(T("Home"), .home(book.key))]).padding(.top, 10)
-				// h1: the <em> words in the accent colour, the scale in green (not italic)
-				Text(TM("{n} <em>cocktails</em> using a <em class=\"g\">scale</em>", ["n": book.nstated], style: [
-					"em": { $0.inlinePresentationIntent = nil; $0.foregroundColor = Theme.acc },
-					"em.g": { $0.inlinePresentationIntent = nil; $0.foregroundColor = Theme.green },
-				]))
-					.font(Theme.sans(40, .semibold)).kerning(-1.2).lineSpacing(-6).foregroundStyle(Theme.ink)
-					.padding(.top, 16)
-				lede.font(Theme.sans(16)).foregroundStyle(Theme.soft).lineSpacing(4).padding(.top, 26)
-				SearchBox(q: $q) { push(.search(book.key, q: q)) }.padding(.top, 28)
-				Pic(url: book.heroURL, bg: nil).aspectRatio(1, contentMode: .fit)
+				let h1 = min(76.8, max(40, vw * 0.062))
+				let text = VStack(alignment: .leading, spacing: 0) {
+					// h1: the <em> words in the accent colour, the scale in green (not italic)
+					Text(TM("{n} <em>cocktails</em> using a <em class=\"g\">scale</em>", ["n": book.nstated], style: [
+						"em": { $0.inlinePresentationIntent = nil; $0.foregroundColor = Theme.acc },
+						"em.g": { $0.inlinePresentationIntent = nil; $0.foregroundColor = Theme.green },
+					]))
+						.font(Theme.sans(h1, .semibold)).kerning(-h1 * 0.03).lineSpacing(-h1 * 0.15).foregroundStyle(Theme.ink)
+						.frame(maxWidth: h1 * 8, alignment: .leading)
+					lede.font(Theme.sans(min(17.9, max(16, vw * 0.016)))).foregroundStyle(Theme.soft).lineSpacing(4).padding(.top, 26)
+						.frame(maxWidth: 560, alignment: .leading)
+					SearchBox(q: $q) { push(.search(book.key, q: q)) }.frame(maxWidth: 480).padding(.top, 28)
+				}
+				let pic = Pic(url: book.heroURL, bg: nil).aspectRatio(1, contentMode: .fit)
 					.clipShape(RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.line))
-					.padding(.top, 24).padding(.bottom, 30)
+				if Theme.narrow(vw) {
+					text.padding(.top, min(70, max(40, vw * 0.07)) - 16)
+					pic.padding(.top, 24).padding(.bottom, 30)
+				} else {
+					HStack(alignment: .center, spacing: min(48, max(24, vw * 0.04))) {
+						text.frame(maxWidth: .infinity, alignment: .leading)
+						pic.frame(maxWidth: .infinity)
+					}
+					.padding(.top, min(70, max(40, vw * 0.07)) - 16).padding(.bottom, 38)
+				}
 			}
 			// 01 By base spirit
 			Block {

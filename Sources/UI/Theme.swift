@@ -32,6 +32,11 @@ enum Theme {
 	}
 	/// the page gutter (.wrap padding-inline: clamp(16px,4vw,34px))
 	static func gutter(_ width: CGFloat) -> CGFloat { min(34, max(16, width * 0.04)) }
+	/// the site's breakpoints: phones (pdt_mobile.css <= 699px), one column (<= 860px), compact
+	/// recipe rows (<= 520px)
+	static func phone(_ vw: CGFloat) -> Bool { vw < 700 }
+	static func narrow(_ vw: CGFloat) -> Bool { vw <= 860 }
+	static func small(_ vw: CGFloat) -> Bool { vw <= 520 }
 }
 
 extension Color {

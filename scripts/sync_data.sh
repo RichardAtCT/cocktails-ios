@@ -16,6 +16,16 @@ for dir in pdt deathco ingredients glasses spirits spirits/pair; do
 	cp $dir/*.avif "$OUT/img/$dir/" 2>/dev/null || true
 done
 cp hero.avif hero-*.avif "$OUT/img/"
+# the recipe's ingredient strip: each bottle trimmed to itself (ingredients/tc/, one scale: the
+# full picture = 216px), so they pack edge to edge
+mkdir -p "$OUT/img/ingredients/tc"
+cp ingredients/tc/*.jpg "$OUT/img/ingredients/tc/"
+# the cocktail photos trimmed on all sides (<book>/tz/): the recipe page's photo on phones,
+# beside the title, as the site's pdt_mobile.css shows it
+for b in pdt deathco; do mkdir -p "$OUT/img/$b/tz"; cp $b/tz/*.jpg "$OUT/img/$b/tz/"; done
+# the book chooser's tour video thumbnail
+mkdir -p "$OUT/img/video"
+cp video/explainer.jpg "$OUT/img/video/"
 # the scale maker's Tare step: a shaker tin on the Half Decent Scale
 mkdir -p "$OUT/img/maker"
 cp maker/shaker-scale.jpg "$OUT/img/maker/"

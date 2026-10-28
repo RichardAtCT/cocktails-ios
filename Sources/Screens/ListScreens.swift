@@ -97,6 +97,14 @@ struct SpiritView: View {
 	let key: String
 	let and: String
 	@State private var sort = "pop"
+	/// .sortbar: sort  [MOST POPULAR] [A–Z]
+	private var sortPills: some View {
+		HStack(spacing: 8) {
+			Text(T("sort")).font(Theme.sans(14.4)).foregroundStyle(Theme.soft)
+			Button { sort = "pop" } label: { SortPill(label: T("most popular"), on: sort == "pop") }.buttonStyle(.plain)
+			Button { sort = "az" } label: { SortPill(label: T("A–Z"), on: sort == "az") }.buttonStyle(.plain)
+		}.fixedSize()
+	}
 
 	var body: some View {
 		let s = book.store
@@ -135,26 +143,48 @@ struct SpiritView: View {
 				let types = s.spiritTypes(key)
 				if !types.isEmpty {
 					Block(rule: false, top: 20) {
-						SectionHead(title: T("Types of {spirit}", ["spirit": label]), count: types.count)
+						// the page's sort sits in this header (it sorts the cocktails below), as on the site
+						SectionHead(title: T("Types of {spirit}", ["spirit": label]), count: types.count) { sortPills }
 						IngGrid(items: types.map { (T($0.name), Img.ingredient($0.name), Route.ingredient(book.key, name: $0.name, with: "")) })
 					}
 				}
 				Block {
 					SectionHead(title: T("{spirit} cocktails", ["spirit": label]), count: n) { OtherBookPills(others: others) }
-					FlowLayout {
-						Text(T("sort")).font(Theme.sans(14.4)).foregroundStyle(Theme.soft).padding(.top, 6)
-						Button { sort = "pop" } label: { SortPill(label: T("most popular"), on: sort == "pop") }.buttonStyle(.plain)
-						Button { sort = "az" } label: { SortPill(label: T("A–Z"), on: sort == "az") }.buttonStyle(.plain)
-					}.padding(.bottom, 20)
+					if s.spiritTypes(key).isEmpty { sortPills.padding(.bottom, 20) }
 					if sort == "az" { CardGrid(book: book, drinks: flat) } else { CardGrid(book: book, drinks: s.sortedByPopularity(flat), ranked: true) }
 				}
 			} else {
 				// spirit + anything: the ingredient-pair layout
 				let alabel = Store.secondLabel(and)
 				Crumb(items: [(T("Home"), .home(book.key)), (T("Spirits"), .spirits(book.key)), (label, .spirit(book.key, key: key, and: "")), (alabel, nil)]).padding(.top, 10)
-				pairPictures(s, alabel)
-				(Text(label) + Text(" + \(alabel)").foregroundColor(Theme.faint))
-					.font(Theme.sans(34, .semibold)).kerning(-0.8).foregroundStyle(Theme.ink).padding(.top, 14)
+				// .inghero: the title and pairings on the left, the picture on the right; on phones
+				// (<= 520px) the picture first, full width
+				VW { vw in
+					if Theme.small(vw) {
+						pairPictures(s, alabel, height: 180)
+						H1Pair(a: label, b: alabel).padding(.top, 14)
+						spiritPairs(s, alabel)
+					} else {
+						HStack(alignment: .center, spacing: min(40, max(20, vw * 0.04))) {
+							VStack(alignment: .leading, spacing: 0) {
+								H1Pair(a: label, b: alabel)
+								spiritPairs(s, alabel)
+							}.frame(maxWidth: .infinity, alignment: .leading)
+							pairPictures(s, alabel, height: 168).frame(maxWidth: 300)
+						}
+					}
+				}
+				.padding(.bottom, 26)
+				Block {
+					SectionHead(title: T("Cocktails with {ingredient} and {other}", ["ingredient": label, "other": alabel]), count: n) { OtherBookPills(others: others) }
+					CardGrid(book: book, drinks: s.sortedByPopularity(flat))
+				}
+			}
+		}
+	}
+
+	/// "Pairs most with": the other base spirits (with this pair's second half selected)
+	@ViewBuilder private func spiritPairs(_ s: Store, _ alabel: String) -> some View {
 				Eye(T("Pairs most with")).padding(.top, 16).padding(.bottom, 7)
 				FlowLayout(spacing: 7, lineSpacing: 7) {
 					if !Store.baseSpirits.contains(and) {
@@ -168,20 +198,14 @@ struct SpiritView: View {
 							if cc > 0 { NavigationLink(value: Route.spirit(book.key, key: key, and: k2)) { PairChip(label: Store.spiritLabel(k2), count: cc) }.buttonStyle(.plain) }
 						}
 					}
-				}.padding(.bottom, 26)
-				Block {
-					SectionHead(title: T("Cocktails with {ingredient} and {other}", ["ingredient": label, "other": alabel]), count: n) { OtherBookPills(others: others) }
-					CardGrid(book: book, drinks: s.sortedByPopularity(flat))
 				}
-			}
-		}
 	}
 
-	@ViewBuilder private func pairPictures(_ s: Store, _ alabel: String) -> some View {
+	@ViewBuilder private func pairPictures(_ s: Store, _ alabel: String, height: CGFloat) -> some View {
 		if Store.baseSpirits.contains(and), let pair = Img.spiritPair(key, and) {
 			// the two spirits' bottles side by side; tap for the larger picture (the site's #bpair)
 			ZoomPic(url: pair, name: "\(Store.spiritLabel(key)) + \(Store.spiritLabel(and))", big: Img.spiritPairBig(key, and)) {
-				Pic(url: pair, bg: nil).frame(maxWidth: .infinity).frame(height: 180)
+				Pic(url: pair, bg: nil).frame(maxWidth: .infinity).frame(height: height)
 			}
 		} else {
 			let aimg: URL? = and.hasPrefix("cat:") ? s.catImg(String(and.dropFirst(4)))
@@ -220,12 +244,13 @@ struct GlassView: View {
 		let flat = book.store.drinksInGlass(name)
 		PageScroll {
 			Crumb(items: [(T("Home"), .home(book.key)), (T("Glasses"), .glasses(book.key)), (T(name), nil)]).padding(.top, 10)
+			// .ghead (row-reverse, the text not stretched): the glass at the right, its title beside it
 			HStack(spacing: 18) {
+				Spacer(minLength: 0)
 				VStack(alignment: .leading, spacing: 10) {
 					H1(T("{glass} cocktails", ["glass": T(name)]))
 					Text(nCocktails(flat.count)).font(Theme.mono(13)).foregroundStyle(Theme.soft)
 				}
-				Spacer()
 				if let u = Img.glass(name) { Pic(url: u, bg: nil).frame(width: 84, height: 84) }
 			}
 			.padding(.bottom, 28)
@@ -291,54 +316,50 @@ struct IngredientView: View {
 			let crumb: [(String, Route?)] = with.isEmpty
 				? [(T("Home"), .home(book.key)), (T("Ingredients"), .ingredients(book.key)), (ingt, nil)]
 				: [(T("Home"), .home(book.key)), (T("Ingredients"), .ingredients(book.key)), (ingt, .ingredient(book.key, name: name, with: "")), (T(with), nil)]
-			HStack(alignment: .center) {
+			let crumbRow = HStack(alignment: .center) {
 				Crumb(items: crumb)
 				Spacer(minLength: 8)
 				if with.isEmpty, let iid = s.ingredientId(name) { IHaveButton(book: book, id: iid) }
-			}.padding(.top, 10)
-			if with.isEmpty {
-				// one bottle: on the right of the title and its category, as the spirit page has its
-				// photo (the site floats it there on phones); tap for the larger picture
-				HStack(alignment: .top, spacing: 14) {
-					VStack(alignment: .leading, spacing: 0) {
-						H1(ingt)
+			}
+			let title = Group {
+				if with.isEmpty { H1(ingt) } else {
+					H1Pair(a: ingt, b: T(with))
+				}
+			}
+			VW { vw in
+				if Theme.small(vw) {
+					// phones (<= 520px): the crumb on top; one bottle floats right of the title and its
+					// category, a pair stands full width above the title; the pairings below
+					crumbRow.padding(.top, 10)
+					if with.isEmpty {
+						HStack(alignment: .top, spacing: 14) {
+							VStack(alignment: .leading, spacing: 0) {
+								title
+								catChips(s, cats).padding(.top, 16)
+							}
+							.frame(maxWidth: .infinity, alignment: .leading)
+							bottles(height: 150, single: true, width: 120)
+						}.padding(.top, 14)
+					} else {
+						bottles(height: 168, single: false).frame(maxWidth: .infinity)
+						title.padding(.top, 14)
 						catChips(s, cats).padding(.top, 16)
 					}
-					.frame(maxWidth: .infinity, alignment: .leading)
-					if let u = Img.ingredient(name) {
-						ZoomPic(url: u, name: ingt, big: Img.ingredientBig(name), link: Img.productPhoto(name)) {
-							Pic(url: u, bg: nil).frame(width: 120, height: 150)
+					pairsBlock(s)
+				} else {
+					// .inghero.ingtop: the text (crumb, title, category, pairings) on the left, the
+					// picture on the right, as tall as the text (at most 40% of the row; a pair 55%)
+					CW { cw in IngHero(row: cw, pair: !with.isEmpty) {
+						VStack(alignment: .leading, spacing: 0) {
+							crumbRow
+							title.padding(.top, 14)
+							catChips(s, cats).padding(.top, 16)
+							pairsBlock(s)
 						}
+					} picture: { h in
+						bottles(height: h, single: with.isEmpty)
 					}
-				}.padding(.top, 14)
-			} else {
-				// a pair: the two bottles side by side, each opening its own larger picture
-				HStack(spacing: -56) {
-					ForEach([name, with], id: \.self) { nm in
-						ZoomPic(url: Img.ingredient(nm), name: T(nm), big: Img.ingredientBig(nm), link: Img.productPhoto(nm)) {
-							Pic(url: Img.ingredient(nm)).frame(width: 168, height: 168).blendMode(.multiply)
-						}
-					}
-				}
-				.frame(maxWidth: .infinity)
-				(Text(ingt) + Text(" + \(T(with))").foregroundColor(Theme.faint)).font(Theme.sans(34, .semibold)).kerning(-0.8).foregroundStyle(Theme.ink)
-					.padding(.top, 14)
-				catChips(s, cats).padding(.top, 16)
-			}
-			let pairs = s.pairsWith(name)
-			if !pairs.isEmpty {
-				Eye(T("Pairs most with")).padding(.top, 16).padding(.bottom, 7)
-				FlowLayout(spacing: 7, lineSpacing: 7) {
-					if !with.isEmpty && !pairs.contains(where: { $0.0 == with }) {
-						NavigationLink(value: Route.ingredient(book.key, name: name, with: "")) { PairChip(label: T(with), selected: true) }.buttonStyle(.plain)
-					}
-					ForEach(pairs, id: \.0) { nm, c in
-						if nm == with {
-							NavigationLink(value: Route.ingredient(book.key, name: name, with: "")) { PairChip(label: T(nm), selected: true) }.buttonStyle(.plain)
-						} else {
-							NavigationLink(value: Route.ingredient(book.key, name: name, with: nm)) { PairChip(label: T(nm), count: c) }.buttonStyle(.plain)
-						}
-					}
+					.padding(.top, 10) }
 				}
 			}
 			Block(top: 38) {
@@ -353,11 +374,79 @@ struct IngredientView: View {
 }
 
 extension IngredientView {
+	/// the bottle, or the pair's two side by side; each opens its larger picture
+	@ViewBuilder fileprivate func bottles(height: CGFloat, single: Bool, width: CGFloat? = nil) -> some View {
+		if single {
+			if let u = Img.ingredient(name) {
+				ZoomPic(url: u, name: T(name), big: Img.ingredientBig(name), link: Img.productPhoto(name)) {
+					Pic(url: u, bg: nil).frame(width: width ?? height, height: height)
+				}
+			}
+		} else {
+			// .ipair.trim: the two bottles trimmed to themselves (ingredients/tc/), clamp(170px, 24vw,
+			// 280px) tall, clamp(14px, 2.5vw, 28px) apart, on white
+			VW { vw in
+				let h = min(280, max(170, vw * 0.24))
+				HStack(alignment: .bottom, spacing: min(28, max(14, vw * 0.025))) {
+					ForEach([name, with], id: \.self) { nm in
+						let u = Img.ingredientTrim(nm) ?? Img.ingredient(nm)
+						let sz = u.flatMap { PicCache.image($0)?.size } ?? CGSize(width: 1, height: 1)
+						ZoomPic(url: Img.ingredient(nm), name: T(nm), big: Img.ingredientBig(nm), link: Img.productPhoto(nm)) {
+							Pic(url: u, bg: nil).frame(width: h * sz.width / max(sz.height, 1), height: h)
+						}
+					}
+				}
+				.padding(.horizontal, 4).padding(.vertical, 6)
+				.background(Theme.picBG)
+			}
+		}
+	}
+	/// "Pairs most with": the other ingredients it's used with most, each a pair page
+	@ViewBuilder fileprivate func pairsBlock(_ s: Store) -> some View {
+		let pairs = s.pairsWith(name)
+		if !pairs.isEmpty {
+			Eye(T("Pairs most with")).padding(.top, 16).padding(.bottom, 7)
+			FlowLayout(spacing: 7, lineSpacing: 7) {
+				if !with.isEmpty && !pairs.contains(where: { $0.0 == with }) {
+					NavigationLink(value: Route.ingredient(book.key, name: name, with: "")) { PairChip(label: T(with), selected: true) }.buttonStyle(.plain)
+				}
+				ForEach(pairs, id: \.0) { nm, c in
+					if nm == with {
+						NavigationLink(value: Route.ingredient(book.key, name: name, with: "")) { PairChip(label: T(nm), selected: true) }.buttonStyle(.plain)
+					} else {
+						NavigationLink(value: Route.ingredient(book.key, name: name, with: nm)) { PairChip(label: T(nm), count: c) }.buttonStyle(.plain)
+					}
+				}
+			}
+		}
+	}
 	fileprivate func catChips(_ s: Store, _ cats: [String]) -> some View {
 		FlowLayout {
 			ForEach(cats, id: \.self) { ct in
 				NavigationLink(value: Route.cat(book.key, ct)) { Chip(label: Store.prettyCat(ct), image: s.catImg(ct)) }.buttonStyle(.plain)
 			}
+		}
+	}
+}
+
+/// .inghero.ingtop above 520px: the text on the left; the picture on the right, as tall as the
+/// text (the page's fit(): at most 40% of the row for one bottle, (55% + 56px) / 2 for a pair)
+struct IngHero<Text_: View, Picture: View>: View {
+	let row: CGFloat
+	let pair: Bool
+	var gap: CGFloat? = nil
+	var cap: CGFloat? = nil
+	var minH: CGFloat = 120
+	@ViewBuilder let text: () -> Text_
+	@ViewBuilder let picture: (CGFloat) -> Picture
+	@State private var textH: CGFloat = 168
+	var body: some View {
+		let cap = cap ?? (pair ? (row * 0.55 + 56) / 2 : row * 0.4)
+		HStack(alignment: .top, spacing: gap ?? min(40, max(20, row * 0.04))) {
+			text()
+				.frame(maxWidth: .infinity, alignment: .leading)
+				.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { textH = $0 }
+			picture(max(minH, min(cap, textH)))
 		}
 	}
 }
@@ -402,22 +491,110 @@ struct SearchView: View {
 /// /<book>/usage: every ingredient ranked by how many cocktails use it
 struct UsageView: View {
 	let book: Book
+	@Environment(\.navPush) private var push
 	var body: some View {
-		let rows = book.store.db.rows("""
-			SELECT T1.name, COUNT(DISTINCT T3.drink_id) AS num FROM ingredient AS T1
-			LEFT JOIN step AS T4 ON T1.ingredient_id=T4.ingredient_id AND T4.sortorder IS NOT NULL
-			LEFT JOIN drink AS T3 ON T4.drink_id=T3.drink_id GROUP BY T1.ingredient_id, T1.name ORDER BY num DESC, T1.name ASC
-			""")
-		PageScroll {
-			PageHead(crumb: [(T("Home"), .home(book.key)), (T("Ingredients"), .ingredients(book.key)), (T("Most-used ingredients"), nil)],
-				title: T("Most-used ingredients"), sub: T("Every ingredient ranked by how many cocktails use it"))
-			LazyVStack(spacing: 0) {
-				ForEach(Array(rows.enumerated()), id: \.offset) { _, r in
-					LinkRow(label: T(r.s(0)), image: Img.ingredient(r.s(0)), count: r.i(1), route: .ingredient(book.key, name: r.s(0), with: ""))
+		// the site's usage report: every ingredient, its cocktails, its categories, and the cocktails
+		let rows: [UsageData] = book.store.memo("usage") {
+			book.store.db.rows("""
+				SELECT T1.name, COUNT(DISTINCT T3.drink_id) AS num, GROUP_CONCAT(DISTINCT T2.name), GROUP_CONCAT(DISTINCT T3.name)
+				FROM ingredient AS T1 LEFT JOIN ingtag AS T2 ON T1.ingredient_id=T2.ingredient_id
+				LEFT JOIN step AS T4 ON T1.ingredient_id=T4.ingredient_id AND T4.sortorder IS NOT NULL
+				LEFT JOIN drink AS T3 ON T4.drink_id=T3.drink_id
+				GROUP BY T1.ingredient_id, T1.name ORDER BY num DESC, T1.name ASC
+				""").map { r in
+				UsageData(name: r.s(0), count: r.i(1),
+					tags: r.s(2).isEmpty ? "-" : r.s(2).split(separator: ",").map { Store.prettyCat(String($0)) }.joined(separator: ", "),
+					cocktails: r.s(3).split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
+			}
+		}
+		let head = PageHead(crumb: [(T("Home"), .home(book.key)), (T("Ingredients"), .ingredients(book.key)), (T("Most-used ingredients"), nil)],
+			title: T("Most-used ingredients"), sub: T("Every ingredient ranked by how many cocktails use it"))
+		GeometryReader { geo in
+			let vw = geo.size.width
+			let w = min(vw, 1180) - 2 * Theme.gutter(vw)
+			// .utable: the full width; on a phone, where it can't fit, 760 wide and scrolled sideways
+			// (the site's display:block overflow-x:auto), the page scrolling both ways so the rows
+			// still load as they come into view
+			let tw = max(w, 760)
+			let table = LazyVStack(alignment: .leading, spacing: 0) {
+				head
+				UsageRow(data: nil, width: tw, book: book).padding(.top, 24)
+				ForEach(rows) { UsageRow(data: $0, width: tw, book: book) }
+			}
+			.frame(width: tw, alignment: .leading)
+			.padding(.horizontal, Theme.gutter(vw))
+			.padding(.bottom, 40)
+			ScrollView(w < 760 ? [.horizontal, .vertical] : .vertical) {
+				table.frame(maxWidth: .infinity)
+			}
+			.environment(\.vw, vw)
+			.background(Theme.paper)
+		}
+		// the cocktail names in the table are links: open them in the app
+		.environment(\.openURL, OpenURLAction { url in
+			if let r = Route.fromPath(url.path).last { push(r); return .handled }
+			return .discarded
+		})
+	}
+}
+
+struct UsageData: Identifiable {
+	let name: String
+	let count: Int
+	let tags: String
+	let cocktails: [String]
+	var id: String { name }
+}
+
+/// one row of the usage table (th when data is nil): ingredient | cocktails | category | used in
+struct UsageRow: View {
+	let data: UsageData?
+	let width: CGFloat
+	let book: Book
+	var body: some View {
+		let c0 = max(130, width * 0.2), c1: CGFloat = 92, c2 = max(96, width * 0.14)
+		HStack(alignment: .top, spacing: 0) {
+			if let d = data {
+				NavigationLink(value: Route.ingredient(book.key, name: d.name, with: "")) {
+					Text(T(d.name)).foregroundStyle(Theme.ink).multilineTextAlignment(.leading)
+				}.buttonStyle(.plain).cell().frame(width: c0, alignment: .leading)
+				Text("\(d.count)").font(Theme.mono(14.7)).foregroundStyle(Theme.ink).cell().frame(width: c1)
+				Text(d.tags).foregroundStyle(Theme.ink).cell().frame(width: c2, alignment: .leading)
+				Text(links(d)).foregroundStyle(Theme.ink).tint(Theme.ink).cell().frame(maxWidth: .infinity, alignment: .leading)
+			} else {
+				ForEach(Array([T("Ingredient"), T("Cocktails"), T("Category"), T("Used in")].enumerated()), id: \.offset) { i, h in
+					Text(h.uppercased()).font(Theme.mono(10.6)).kerning(0.6).foregroundStyle(Theme.faint).lineLimit(1)
+						.padding(.horizontal, 12).padding(.vertical, 10)
+						.frame(width: [c0, c1, c2][safe: i], alignment: i == 1 ? .center : .leading)
+						.frame(maxWidth: i == 3 ? .infinity : nil, alignment: .leading)
 				}
 			}
 		}
+		.overlay(alignment: .bottom) { Rectangle().fill(data == nil ? Theme.ink : Theme.line).frame(height: data == nil ? 2 : 1) }
 	}
+	/// "Aviation, Bee's Knees, …", each a link to its recipe
+	private func links(_ d: UsageData) -> AttributedString {
+		var out = AttributedString()
+		for (k, c) in d.cocktails.enumerated() {
+			if k > 0 { out += AttributedString(", ") }
+			var a = AttributedString(c)
+			var comps = URLComponents()
+			comps.scheme = "decentcocktails"; comps.host = ""; comps.path = "/cocktails/\(book.key)/recipes/\(c)"
+			a.link = comps.url
+			out += a
+		}
+		return out
+	}
+}
+extension View {
+	/// a .utable td
+	fileprivate func cell() -> some View {
+		self.font(Theme.sans(14.7)).lineSpacing(3).fixedSize(horizontal: false, vertical: true)
+			.padding(.horizontal, 12).padding(.vertical, 11)
+	}
+}
+extension Array {
+	subscript(safe i: Int) -> Element? { indices.contains(i) ? self[i] : nil }
 }
 
 /// .ihave: "I have this ingredient" (signed in, when the current bar location lacks it): adds it

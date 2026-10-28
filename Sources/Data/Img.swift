@@ -25,6 +25,15 @@ enum Img {
 	private static func avif(_ image: String?) -> URL? { image.flatMap { local("img/\($0).avif") } }
 	static func cocktail(_ book: String, _ name: String) -> URL? { avif(drinks[book]?[name]) }
 	static func ingredient(_ name: String) -> URL? { avif(ingredients[name]) }
+	/// the cocktail photo trimmed on all sides (<book>/tz/), for the phone layout's photo
+	static func cocktailTrim(_ book: String, _ name: String) -> URL? {
+		drinks[book]?[name].flatMap { rel in local("img/" + (rel as NSString).deletingLastPathComponent + "/tz/" + (rel as NSString).lastPathComponent + ".jpg") }
+	}
+	/// the ingredient trimmed to the bottle and its shadow (ingredients/tc/, admin/pdt_img_jpg.py);
+	/// every one on the same scale, the full picture being 216px tall
+	static func ingredientTrim(_ name: String) -> URL? {
+		ingredients[name].flatMap { rel in local("img/" + (rel as NSString).deletingLastPathComponent + "/tc/" + (rel as NSString).lastPathComponent + ".jpg") }
+	}
 	static func glass(_ name: String) -> URL? { avif(glasses[name]) }
 	static func spiritPair(_ a: String, _ b: String) -> URL? { local("img/spirits/pair/\(a)-\(b).avif") }
 

@@ -37,6 +37,10 @@ struct PageScroll<Content: View>: View {
 		GeometryReader { geo in
 			ScrollView {
 				VStack(alignment: .leading, spacing: 0) { content }
+					// the layout follows the whole window's width (what the site's media queries see:
+					// Safari counts a landscape iPhone's notch margins), sizes the space really there
+					.environment(\.vw, geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing)
+					.environment(\.cw, min(geo.size.width, 1180) - 2 * Theme.gutter(geo.size.width))
 					.padding(.horizontal, Theme.gutter(geo.size.width))
 					.frame(maxWidth: 1180, alignment: .leading)
 					.frame(maxWidth: .infinity)
@@ -45,6 +49,35 @@ struct PageScroll<Content: View>: View {
 			.background(Theme.paper)
 		}
 	}
+}
+
+/// the window's width, as the site's CSS media queries see the viewport: pages pick the site's
+/// layout for it (Theme.phone < 700 = pdt_mobile.css, Theme.narrow <= 860 = one column)
+private struct VWKey: EnvironmentKey { static let defaultValue: CGFloat = 402 }
+/// the page column's width (the window inside the safe area, at most 1180, less the gutters)
+private struct CWKey: EnvironmentKey { static let defaultValue: CGFloat = 370 }
+extension EnvironmentValues {
+	var cw: CGFloat {
+		get { self[CWKey.self] }
+		set { self[CWKey.self] = newValue }
+	}
+	var vw: CGFloat {
+		get { self[VWKey.self] }
+		set { self[VWKey.self] = newValue }
+	}
+}
+
+/// a view built for the window's width (the site's media queries): VW { vw in ... }
+struct VW<Content: View>: View {
+	@Environment(\.vw) private var vw
+	@ViewBuilder let content: (CGFloat) -> Content
+	var body: some View { content(vw) }
+}
+/// a view built for the page column's width: CW { cw in ... }
+struct CW<Content: View>: View {
+	@Environment(\.cw) private var cw
+	@ViewBuilder let content: (CGFloat) -> Content
+	var body: some View { content(cw) }
 }
 
 /// .crumb: Home / Spirits / Gin (mono, faint); the last item is the current page
@@ -106,8 +139,24 @@ struct PageHead: View {
 struct H1: View {
 	let text: String
 	init(_ t: String) { text = t }
+	@Environment(\.vw) private var vw
 	var body: some View {
-		Text(text).font(Theme.sans(34, .semibold)).kerning(-0.8).lineSpacing(-4).foregroundStyle(Theme.ink)
+		// .phead h1: clamp(2rem, 5vw, 3.2rem), letter-spacing -.025em
+		let size = min(51.2, max(32, vw * 0.05))
+		Text(text).font(Theme.sans(size, .semibold)).kerning(-size * 0.025).lineSpacing(-size * 0.1).foregroundStyle(Theme.ink)
+			.fixedSize(horizontal: false, vertical: true)
+	}
+}
+
+/// a pair page's h1: "Gin + Rum", the second half faint, at the page title's size
+struct H1Pair: View {
+	let a: String
+	let b: String
+	@Environment(\.vw) private var vw
+	var body: some View {
+		let size = min(51.2, max(32, vw * 0.05))
+		(Text(a) + Text(" + \(b)").foregroundColor(Theme.faint))
+			.font(Theme.sans(size, .semibold)).kerning(-size * 0.025).lineSpacing(-size * 0.1).foregroundStyle(Theme.ink)
 			.fixedSize(horizontal: false, vertical: true)
 	}
 }
@@ -193,6 +242,7 @@ struct CardGrid: View {
 	var ranked = false
 	@ObservedObject private var member = Member.shared
 	@ObservedObject private var account = Account.shared
+	@Environment(\.vw) private var vw
 	var body: some View {
 		// signed in with a bar: each card you can't make says what's missing, and with "Hide if
 		// you cannot make" on, only the makeable ones show (pdt_canmake_js)
@@ -207,7 +257,10 @@ struct CardGrid: View {
 				if shown.isEmpty {
 					Text(T("None of these can be made with Your Bar.")).font(Theme.mono(13.5)).foregroundStyle(Theme.faint).padding(.vertical, 10)
 				}
-				LazyVGrid(columns: [GridItem(.adaptive(minimum: 150, maximum: 400), spacing: 14, alignment: .top)], alignment: .leading, spacing: 14) {
+				// .cards: as many 210px+ columns as fit (gap 34 x 26); phones two (gap 14)
+				LazyVGrid(columns: Theme.phone(vw) ? Array(repeating: GridItem(.flexible(), spacing: 14, alignment: .top), count: 2)
+						: [GridItem(.adaptive(minimum: 210), spacing: 26, alignment: .top)],
+						alignment: .leading, spacing: Theme.phone(vw) ? 14 : 34) {
 					ForEach(Array(shown.enumerated()), id: \.element.id) { i, d in
 						NavigationLink(value: Route.recipe(book.key, name: d.name)) {
 							DrinkCard(card: book.store.card(d), rank: ranked ? i + 1 : nil, missing: cm?.missing[d.name])
@@ -247,14 +300,17 @@ struct DrinkCard: View {
 	/// what the member's bar lacks for it ("Missing: …"), nil = say nothing
 	var missing: [String]? = nil
 	@ObservedObject private var member = Member.shared
+	@Environment(\.vw) private var vw
 	var body: some View {
+		// .card (phones: pdt_mobile.css's smaller picture, name and padding)
+		let phone = Theme.phone(vw)
 		VStack(alignment: .leading, spacing: 0) {
-			Pic(url: card.image).frame(height: 104).frame(maxWidth: .infinity).padding(.vertical, 4).background(Theme.picBG)
+			Pic(url: card.image).frame(height: phone ? 104 : 120).frame(maxWidth: .infinity).padding(.vertical, phone ? 4 : 6).background(Theme.picBG)
 				.overlay(alignment: .topTrailing) { MarkBadge(wish: member.isWish(card.id), made: member.isMade(card.id)) }
 				.padding(.bottom, 8)
-			(rankText + Text(card.name).font(Theme.sans(16.5, .semibold)).foregroundColor(Theme.ink))
+			(rankText + Text(card.name).font(Theme.sans(phone ? 16.5 : 19.5, .semibold)).foregroundColor(Theme.ink))
 				.kerning(-0.15).lineSpacing(-1).fixedSize(horizontal: false, vertical: true)
-			Text(description ?? card.ingredients).font(Theme.sans(12.2)).foregroundStyle(Theme.soft).lineSpacing(2)
+			Text(description ?? card.ingredients).font(Theme.sans(phone ? 12.2 : 12.8)).foregroundStyle(Theme.soft).lineSpacing(2)
 				.padding(.top, 7).fixedSize(horizontal: false, vertical: true)
 			if let m = missing, !m.isEmpty {
 				let shown = m.prefix(3).map { T($0) }.joined(separator: ", ") + (m.count > 3 ? " " + T("+{n} more", ["n": m.count - 3]) : "")
@@ -264,7 +320,7 @@ struct DrinkCard: View {
 			if let extra { extra }
 			Spacer(minLength: 0)
 		}
-		.padding(10)
+		.padding(phone ? 10 : 14)
 		.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 		.background(Theme.paper)
 		.overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.line))
@@ -272,7 +328,7 @@ struct DrinkCard: View {
 	}
 	private var rankText: Text {
 		guard let rank else { return Text("") }
-		return Text("#\(rank) ").font(Theme.mono(10.5, .medium)).foregroundColor(Theme.faint)
+		return Text("#\(rank) ").font(Theme.mono(Theme.phone(vw) ? 10.5 : 9.8, .medium)).foregroundColor(Theme.faint)
 	}
 }
 
@@ -297,7 +353,8 @@ struct MarkBadge: View {
 struct IngGrid: View {
 	let items: [(label: String, image: URL?, route: Route)]
 	var body: some View {
-		LazyVGrid(columns: [GridItem(.adaptive(minimum: 104, maximum: 200), spacing: 13, alignment: .top)], alignment: .leading, spacing: 13) {
+		// .inggrid: as many 118px+ columns as fit
+		LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 13, alignment: .top)], alignment: .leading, spacing: 13) {
 			ForEach(Array(items.enumerated()), id: \.offset) { _, it in
 				NavigationLink(value: it.route) {
 					VStack(alignment: .leading, spacing: 0) {

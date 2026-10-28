@@ -6,3 +6,5 @@ DerivedData/
 scripts/winid
 build-sim
 Resources/Data/
+build-ios/
+build-mac/
