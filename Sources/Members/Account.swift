@@ -165,7 +165,14 @@ import CryptoKit
 /// the token's home: a generic password item per server
 enum Keychain {
 	private static func query(_ key: String) -> [String: Any] {
-		[kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "com.decentespresso.cocktails", kSecAttrAccount as String: key]
+		var q: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "com.decentespresso.cocktails", kSecAttrAccount as String: key]
+		#if targetEnvironment(macCatalyst)
+		// the Mac app is Developer-ID signed without a provisioning profile, so it can't use the
+		// iOS-style data-protection keychain (that needs a keychain-access-groups entitlement):
+		// keep the token in the login keychain instead
+		q[kSecUseDataProtectionKeychain as String] = false
+		#endif
+		return q
 	}
 	static func get(_ key: String) -> String? {
 		var q = query(key)
