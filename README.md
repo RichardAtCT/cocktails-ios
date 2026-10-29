@@ -54,6 +54,8 @@ It writes the two book databases and the JSON files in the same schema, with abo
 
 `scripts/check_sql.py` runs every query in `Sources/` against whichever data is in `Resources/Data/`, so a change to a query or to the schema shows up without building the app. Run it after changing either.
 
+GitHub Actions does all of this on every push and pull request (`.github/workflows/build.yml`): it makes the sample data, runs `scripts/check_sql.py`, and builds for Mac Catalyst and the iOS Simulator.
+
 ## How it is put together
 
 ```
