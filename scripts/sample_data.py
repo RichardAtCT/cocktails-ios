@@ -8,8 +8,8 @@ public).
 It writes the two book databases (pdt.db, deathco.db) in the schema the app's queries read, plus
 the side JSON files. Everything in it is sample data: well-known classic drinks in everyday
 proportions, written for this script, not the books' recipes, Decent's descriptions or the site's
-figures. There are no pictures (a missing picture shows as none, as on the site) and no
-translations (the app falls back to English).
+figures. There are no pictures (cards show an empty picture box) and no translations (the app
+falls back to English).
 
 Use it to get the app running and to work on the code. To compare a page with the website, you
 need the real data (scripts/sync_data.sh).
@@ -26,7 +26,8 @@ OUT = Path(__file__).resolve().parent.parent / "Resources" / "Data"
 # ---------------------------------------------------------------------------------------------
 # the schema: every table and column the app's SQL reads (Sources/Data, Sources/Members,
 # Sources/Screens). Ingredient and glass ids are shared by the books; drink ids are not
-# (Death & Co's start at 10001), as in Sources/Data/Books.swift.
+# (Death & Co's start at 10001), as in Sources/Data/Books.swift. As on the site, each book holds
+# only the ingredients its own drinks use.
 
 SCHEMA = """
 CREATE TABLE drink (drink_id INTEGER PRIMARY KEY, name TEXT NOT NULL, image TEXT);
@@ -190,7 +191,11 @@ PDT = [
 	("Saratoga", STIR, "Coupe", 35, [("Rye Whiskey", "1oz", "Build"), ("Cognac", "1oz", "Build"),
 		("Sweet Vermouth", "1oz", "Build"), ("Angostura Bitters", "2dashes", "Build"), ("Lemon Twist", "1", "Twist")],
 		"Sample data: rye and cognac with sweet vermouth."),
-	# no base spirit (the spirit list's "Other" group)
+	# every base spirit has a drink, so no spirit page is empty
+	("Mezcal Sour", SHAKE_DRY, "Coupe", 38, [("Mezcal", "2oz", "Build"), ("Lime Juice", ".75oz", "Build"),
+		("Agave Syrup", ".75oz", "Build"), ("Egg White", "1", "Build"), ("Angostura Bitters", "3dashes", "Garnish")],
+		"Sample data: smoky mezcal and lime, silky with egg white."),
+	# no base spirit (the "Other" group of the recipes by spirit)
 	("Americano", BUILD, "Highball", 44, [("Campari", "1.5oz", "Build"), ("Sweet Vermouth", "1.5oz", "Build"),
 		("Club Soda", "", "Top"), ("Orange Twist", "1", "Garnish")],
 		"Sample data: Campari and sweet vermouth lengthened with soda."),
@@ -336,12 +341,18 @@ def build(book, drinks, first_id, credit):
 	db = sqlite3.connect(path)
 	db.executescript(SCHEMA)
 	db.executemany("INSERT INTO mixtype VALUES (?,?)", MIXTYPES.items())
+	used = {ing for d in drinks for ing, _, _ in d[4]}
 	for name, tags, abv, sugar, acid, generic, _ in INGREDIENTS:
+		if name not in used:
+			continue
 		iid = ING_ID[name]
 		db.execute("INSERT INTO ingredient VALUES (?,?,?,?,?,?,?,?,?)",
 			(iid, name, None, None, generic or None, abv, sugar, acid, "100ml"))
 		db.executemany("INSERT INTO ingtag VALUES (?,?)", [(iid, t) for t in tags])
 	for n, (k, nm, gives) in enumerate(PRODUCE, 1):
+		gives = [g for g in gives if g in used]
+		if not gives:
+			continue
 		db.execute("INSERT INTO produce VALUES (?,?,?,?)", (n, k, nm, n))
 		db.executemany("INSERT INTO produce_gives VALUES (?,?)", [(n, ING_ID[g]) for g in gives])
 	db.executemany("INSERT INTO glass VALUES (?,?,?)", [(n, g, None) for n, g in enumerate(GLASSES, 1)])
@@ -368,7 +379,7 @@ def build(book, drinks, first_id, credit):
 		db.execute("INSERT INTO drink2glass VALUES (?,?)", (did, glass_id[glass]))
 		db.execute("INSERT INTO popularity VALUES (?,?)", (did, pop))
 		db.execute("INSERT INTO drink_description VALUES (?,?)", (did, descr))
-		db.execute("INSERT INTO drink_book VALUES (?,?,?,?)", (did, credit, "Sample data", ""))
+		db.execute("INSERT INTO drink_book VALUES (?,?,?,?)", (did, credit, "", ""))
 		for so, (ing, q, mix) in enumerate(steps, 1):
 			grams = None
 			if q and not (is_count(q) and mix in ("Garnish", "Twist", "Flame")):
